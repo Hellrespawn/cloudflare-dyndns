@@ -5,13 +5,19 @@ if ! command -v jq > /dev/null ; then
     exit 1
 fi
 
-if [ ! -f "./.env" ];then
-    echo ".env-file doesn't exist."
+VIMEXX_CONF="${VIMEXX_CONF:-"./.env"}"
+VIMEXX_IP_FILE="${VIMEXX_IP_FILE:-"./last-ip"}"
+VIMEXX_TOKEN_FILE="${VIMEXX_TOKEN_FILE:-"./token.json"}"
+
+if [ ! -f "$VIMEXX_CONF" ];then
+    echo "Configuration file '$VIMEXX_CONF' doesn't exist."
     exit 1
 fi
 
-# shellcheck source=.env
-. ./.env
+set -e
+
+# shellcheck source=.
+. "$VIMEXX_CONF"
 
 TOKEN_URL="https://api.vimexx.nl/auth/token"
 API_URL="https://api.vimexx.nl/api/v1/whmcs/domain/dns"
@@ -20,33 +26,31 @@ GET_TOKEN_JSON="{ \
     \"grant_type\": \"password\", \
     \"client_id\": \"$VIMEXX_CLIENT_ID\", \
     \"client_secret\": \"$VIMEXX_CLIENT_SECRET\", \
-    \"username\": \"$VIMEXX_USERNAME\", \
+    \"username\": \"$VIMEXX_EMAIL\", \
     \"password\": \"$VIMEXX_PASSWORD\", \
     \"scope\": \"whmcs-access\" \
 }"
 
 GET_DNS_JSON="{ \
     \"body\": { \
-        \"sld\":\"$DOMAIN_NAME\", \
+        \"sld\":\"$VIMEXX_DOMAIN_NAME\", \
         \"tld\":\"nl\" \
     }, \
-    \"version\": \"7.7.1-release.1\" \
+    \"version\": \"8.6.1-release.1\" \
 }"
 
 UPDATE_DNS_JSON_CLOSE="}, \
-\"version\": \"7.7.1-release.1\" \
+\"version\": \"8.6.1-release.1\" \
 }"
 
 UPDATE_DNS_JSON_OPEN="{ \
 \"body\": { \
-\"sld\":\"$DOMAIN_NAME\", \
-\"tld\":\"nl\" \, \
+\"sld\":\"$VIMEXX_DOMAIN_NAME\", \
+\"tld\":\"nl\", \
 \"dns_records\":"
 
 PUBLIC_IP=
 BEARER_TOKEN=
-
-set -e
 
 # Silence curl progess bars
 curl() {
@@ -78,8 +82,8 @@ curl_json() {
 is_ip_changed() {
     PUBLIC_IP=$(get_public_ip)
 
-    if [ -f "$IP_FILE" ]; then
-        last_ip=$(cat "$IP_FILE")
+    if [ -f "$VIMEXX_IP_FILE" ]; then
+        last_ip=$(cat "$VIMEXX_IP_FILE")
 
         if [ "$last_ip" != "$PUBLIC_IP" ]; then
             echo "IP address updated: '$last_ip' => '$PUBLIC_IP'"
@@ -118,16 +122,16 @@ get_public_ip()
 # Sets global $BEARER_TOKEN.
 refresh_token() {
     if [ ! -f "./token.json" ]; then
-        echo "Creating token file '$TOKEN_FILE'"
+        echo "Creating token file '$VIMEXX_TOKEN_FILE'"
 
         update_token
     elif is_token_expired; then
-        echo "Token expired, updating '$TOKEN_FILE'"
+        echo "Token expired, updating '$VIMEXX_TOKEN_FILE'"
 
         update_token
     fi
 
-    BEARER_TOKEN=$(jq -r '.access_token' "$TOKEN_FILE")
+    BEARER_TOKEN=$(jq -r '.access_token' "$VIMEXX_TOKEN_FILE")
 }
 
 # Checks if token is expired. Defaults to half of expiration.
@@ -136,7 +140,7 @@ is_token_expired() {
 
     # seconds since epoch
     current_time=$(date +%s)
-    mtime=$(stat -c '%Y' "$TOKEN_FILE")
+    mtime=$(stat -c '%Y' "$VIMEXX_TOKEN_FILE")
 
 
     if [ $((current_time - mtime > expiration / 2)) ]; then
@@ -150,14 +154,12 @@ is_token_expired() {
 update_token() {
     token=$(curl_json POST "$TOKEN_URL" "$GET_TOKEN_JSON")
 
-    echo "$token" > "$TOKEN_FILE"
+    echo "$token" > "$VIMEXX_TOKEN_FILE"
 }
 
-# Gets all DNS records for $DOMAIN
+# Gets all DNS records for $VIMEXX_DOMAIN
 get_dns_records() {
-    response=$(curl_json POST "$API_URL" "$GET_DNS_JSON" "$BEARER_TOKEN")
-    check_api_error "$response"
-    echo "response" | jq '.data.dns_records'
+    curl_json POST "$API_URL" "$GET_DNS_JSON" "$BEARER_TOKEN"
 }
 
 # $1: API Response, JSON Object
@@ -165,7 +167,7 @@ check_api_error() {
     result=$(echo "$1" | jq '.result')
 
     if [ "$result" != "true" ]; then
-        echo "An error occurred while gettings DNS records."
+        echo "An error occurred."
         echo "message: $(echo "$1" | jq '.message')"
         exit 1
     fi
@@ -185,21 +187,24 @@ check_api_error() {
 # $1: JSON array of DNS records
 # $2: New IP address
 transform_dns_records() {
-    echo "$1" | jq "[.[] | select(.type != \"AAAA\") | .content = if .type == \"A\" then \"$2\" else .content end | del(.prio|nulls) | .ttl = 300]"
+    echo "$1" | jq "
+    [.[]
+    | select(.type != \"AAAA\")
+    | .content = if .type == \"A\" then \"$2\" else .content end
+    | del(.prio|nulls)
+    | .ttl = $VIMEXX_TTL]"
 }
 
 # $1: JSON array with transformed values
 update_dns_records() {
     body="$UPDATE_DNS_JSON_OPEN $1 $UPDATE_DNS_JSON_CLOSE"
 
-    echo "$body" | command jq '.'
-
-    # response=$(curl_json POST "$API_URL" "$body" "$BEARER_TOKEN")
-    # check_api_error "$response"
+    # echo "$body" | command jq '.'
+    curl_json PUT "$API_URL" "$body" "$BEARER_TOKEN"
 }
 
 update_last_ip() {
-    echo "$PUBLIC_IP" > "$IP_FILE"
+    echo "$PUBLIC_IP" > "$VIMEXX_IP_FILE"
 }
 
 new_ip=
@@ -213,24 +218,21 @@ fi
 if [ -n "$new_ip" ]; then
     refresh_token
 
-    records=$(get_dns_records)
+    response=$(get_dns_records)
+    check_api_error "$response"
+    records=$(echo "$response" | jq '.data.dns_records')
 
     echo "Retrieved DNS records"
 
-    new_ip=
-    if [ -n "$1" ]; then
-        new_ip="$!"
-    else
-        new_ip="$PUBLIC_IP"
-    fi
+    records=$(transform_dns_records "$records" "$new_ip")
 
-    body=$(transform_dns_records "$records" "$new_ip")
-
-    update_dns_records "$body"
+    response=$(update_dns_records "$records")
+    check_api_error "$response"
+    body=$(echo "$response" | command jq '.')
 
     echo "Updated DNS records".
 
-    update_last_ip
+    # update_last_ip
 
     echo "Updated IP address in cache".
 fi

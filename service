@@ -1,0 +1,11 @@
+[Unit]
+Description=Update Vimexx DNS
+
+[Service]
+Environment="VIMEXX_CONF=/etc/vimexx-dyndns/vimexx-dyndns.conf"
+Environment="VIMEXX_IP_FILE=/etc/vimexx-dyndns/last-ip"
+Environment="VIMEXX_TOKEN_FILE=/etc/vimexx-dyndns/token.json"
+
+Type=oneshot
+ExecStart=/usr/bin/vimexx-dyndns
+

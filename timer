@@ -1,5 +1,5 @@
 [Unit]
-Description=Check and update Vimexx DNS every 15 minutes
+Description=Check and update CloudFlare DNS every 15 minutes
 
 [Timer]
 OnCalendar=*:0/15

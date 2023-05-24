@@ -2,9 +2,6 @@
 Description=Update CloudFlare DNS
 
 [Service]
-Environment="CLOUDFLARE_CONF=/etc/cloudflare-dyndns/cloudflare-dyndns.conf"
-Environment="CLOUDFLARE_IP_FILE=/etc/cloudflare-dyndns/last-ip"
-
 Type=oneshot
 ExecStart=/usr/bin/cloudflare-dyndns
 

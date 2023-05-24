@@ -1,35 +1,26 @@
-#!/bin/sh
+#!/usr/bin/env sh
 
-if ! command -v jq >/dev/null; then
-    echo "jq is required."
-    exit 1
-fi
+set -o errexit
+set -o nounset
+if [ "${TRACE-0}" = "1" ]; then set -o xtrace; fi
 
-CLOUDFLARE_CONF="${CLOUDFLARE_CONF:-"./.env"}"
-CLOUDFLARE_IP_FILE="${CLOUDFLARE_IP_FILE:-"./last-ip"}"
+CONFIG_FILE="cloudflare-dyndns.conf"
+LAST_IP_FILE="last-ip"
 
-if [ ! -f "$CLOUDFLARE_CONF" ]; then
-    echo "Configuration file '$CLOUDFLARE_CONF' doesn't exist."
-    exit 1
-fi
-
-set -e
-
-. "$CLOUDFLARE_CONF"
-
-if [ -z "$CLOUDFLARE_TOKEN" ]; then
-    echo "CLOUDFLARE_TOKEN is not set."
-    exit 1
-fi
-
-if [ -z "$CLOUDFLARE_ZONE_ID" ]; then
-    echo "CLOUDFLARE_ZONE_ID is not set."
-    exit 1
-fi
+SYSTEM_CONFIG_DIR="/etc/cloudflare-dyndns"
+USER_CONFIG_DIR="${HOME-"/dev/null"}/.config"
 
 API_URL="https://api.cloudflare.com/client/v4"
 
-PUBLIC_IP=
+exit_with_error() {
+    printf "Error: %s\n" "$@"
+    usage
+    exit 1
+}
+
+usage() {
+    echo "Usage: $0 [-h | -i ip_address]"
+}
 
 # Silence curl progess bars
 curl() {
@@ -41,35 +32,89 @@ curl() {
 # $1: HTTP method
 # $2: URL
 # $3: JSON Data (optional)
-curl_json() {
+curl_wrapper() {
     command="curl -X '$1' '$API_URL$2' -H 'Content-Type: application/json' -H 'Authorization: Bearer $CLOUDFLARE_TOKEN'"
 
-    if [ -n "$3" ]; then
-        command="$command -d '$3'"
-    fi
+    if [ -n "${3-}" ]; then command="$command -d '$3'"; fi
 
     eval "$command"
 }
 
-# Returns true if the ip is changed. Sets global $PUBLIC_IP
-is_ip_changed() {
-    PUBLIC_IP=$(get_public_ip)
+init_environment() {
+    if ! command -v jq >/dev/null; then exit_with_error "jq is required."; fi
 
-    if [ -f "$CLOUDFLARE_IP_FILE" ]; then
-        last_ip=$(cat "$CLOUDFLARE_IP_FILE")
+    # shellcheck source=/dev/null
+    if [ -f "$SYSTEM_CONFIG_DIR/$CONFIG_FILE" ]; then . "$SYSTEM_CONFIG_DIR/$CONFIG_FILE"; fi
+    # shellcheck source=/dev/null
+    if [ -f "$USER_CONFIG_DIR/$CONFIG_FILE" ]; then . "$USER_CONFIG_DIR/$CONFIG_FILE"; fi
+    if [ -z "${CLOUDFLARE_TOKEN-}" ]; then exit_with_error "CLOUDFLARE_TOKEN is not set."; fi
+    if [ -z "${CLOUDFLARE_ZONE_ID-}" ]; then exit_with_error "CLOUDFLARE_ZONE_ID is not set."; fi
+}
 
-        if [ "$last_ip" != "$PUBLIC_IP" ]; then
-            echo "IP address updated: '$last_ip' => '$PUBLIC_IP'"
+handle_arguments() {
+    while getopts ': i:h' opt; do
+        case $opt in
+        i)
+            if [ -z "${OPTARG-}" ]; then
+                exit_with_error "'-i' requires an IP address as argument."
+            fi
+
+            NEW_IP=$OPTARG
+            ;;
+        h)
+            usage
+            exit 0
+            ;;
+        *)
+            exit_with_error "Invalid option '-$OPTARG'"
+            ;;
+        esac
+    done
+
+    shift $((OPTIND - 1))
+}
+
+# Returns true if the ip is changed.
+#
+# $1: new ip
+is_public_ip_changed() {
+    last_ip=$(get_last_ip)
+
+    if [ -n "$last_ip" ]; then
+        if [ "$last_ip" != "$1" ]; then
+            echo "IP address updated: '$last_ip' => '$1'"
             return 0
         else
 
-            echo "IP address unchanged: '$PUBLIC_IP'"
+            echo "IP address unchanged: '$last_ip'"
             return 1
         fi
     else
-        echo "IP address: '$PUBLIC_IP'"
+        echo "IP address: '$1'"
         return 0
     fi
+}
+
+get_last_ip() {
+    ip_file=$(get_last_ip_file)
+
+    if [ -f "$ip_file" ]; then
+        cat "$ip_file"
+    fi
+}
+
+get_last_ip_file() {
+    if [ "$(id -u)" = "0" ]; then
+        echo "$SYSTEM_CONFIG_DIR/$LAST_IP_FILE"
+    else
+        echo "$USER_CONFIG_DIR/$LAST_IP_FILE"
+    fi
+}
+
+save_last_ip() {
+    ip_file=$(get_last_ip_file)
+
+    echo "$1" >"$ip_file"
 }
 
 # Gets the public ip of the server.
@@ -78,9 +123,7 @@ get_public_ip() {
     status=$(curl -o "$TEMP_FILE" -w "%{response_code}" 'http://ipecho.net/plain')
 
     if [ "$status" -ne "200" ]; then
-        echo "Received status $status while getting public IP."
-        echo "See $TEMP_FILE for response."
-        exit 1
+        exit_with_error "Received status $status while getting public IP.\nSee $TEMP_FILE for response."
     fi
 
     public_ip=$(cat "$TEMP_FILE")
@@ -92,7 +135,7 @@ get_public_ip() {
 
 # Gets all DNS records for $CLOUDFLARE_DOMAIN
 get_dns_records() {
-    curl_json GET "/zones/$CLOUDFLARE_ZONE_ID/dns_records"
+    curl_wrapper GET "/zones/$CLOUDFLARE_ZONE_ID/dns_records"
 }
 
 # $1: API Response, JSON Object
@@ -100,26 +143,18 @@ check_api_error() {
     result=$(echo "$1" | jq '.success')
 
     if [ "$result" != "true" ]; then
-        echo "An error occurred."
-        echo "$1" | jq '.errors'
-        exit 1
+        exit_with_error "$($1 | jq '.errors')"
     fi
-}
-
-update_last_ip() {
-    echo "$PUBLIC_IP" >"$CLOUDFLARE_IP_FILE"
 }
 
 main() {
-    new_ip=
+    init_environment
 
-    if [ -n "$1" ]; then
-        new_ip="$1"
-    elif is_ip_changed; then
-        new_ip="$PUBLIC_IP"
-    fi
+    handle_arguments "$@"
 
-    if [ -n "$new_ip" ]; then
+    new_ip=${NEW_IP-$(get_public_ip)}
+
+    if is_public_ip_changed "$new_ip"; then
         response=$(get_dns_records)
         check_api_error "$response"
 
@@ -127,18 +162,16 @@ main() {
 
         a_records=$(echo "$response" | jq -c '.result[] | select(.type == "A")')
 
-        # identifiers=$(extract_identifiers "$records")
-
         for record in $a_records; do
             id=$(echo "$record" | jq -r '.id')
 
-            response=$(curl_json PATCH "/zones/$CLOUDFLARE_ZONE_ID/dns_records/$id" "{ \"content\": \"$new_ip\" }")
+            response=$(curl_wrapper PATCH "/zones/$CLOUDFLARE_ZONE_ID/dns_records/$id" "{ \"content\": \"$new_ip\" }")
             check_api_error "$response"
 
             printf "Updated '%s' record.\n" "$(echo "$record" | jq -r '.name')"
         done
 
-        update_last_ip
+        save_last_ip "$new_ip"
 
         echo "Updated IP address in cache".
     fi

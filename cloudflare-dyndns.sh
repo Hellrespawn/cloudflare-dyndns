@@ -27,7 +27,8 @@ curl() {
     command curl -s "$@"
 }
 
-# Wrapper function for curl posts. Sets default headers.
+# Wrapper function for curl posts. Adds Authorization and Content-Type header.
+# Optionally adds JSON data.
 #
 # $1: HTTP method
 # $2: URL
@@ -52,6 +53,10 @@ init_environment() {
 }
 
 handle_arguments() {
+    # ':'-prefix indicates we handle errors ourselves.
+    #
+    # ':'-suffix in 'i:' indicates it should receive an argument. It is
+    # required for $OPTARG to be set.
     while getopts ': i:h' opt; do
         case $opt in
         i)

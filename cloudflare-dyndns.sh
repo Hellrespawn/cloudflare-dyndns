@@ -2,6 +2,7 @@
 
 set -o errexit
 set -o nounset
+# '${VAR-default}' expands to default only if VAR is unset.
 if [ "${TRACE-0}" = "1" ]; then set -o xtrace; fi
 
 CONFIG_FILE="cloudflare-dyndns.conf"
@@ -12,28 +13,39 @@ USER_CONFIG_DIR="${HOME-"/dev/null"}/.config"
 
 API_URL="https://api.cloudflare.com/client/v4"
 
+# This will have the user-supplied IP address, if any.
+USER_IP=
+
+# Print message to stderr, print usage and exit with error code 1.
+#
+# $1: Error Message
 exit_with_error() {
-    printf "Error: %s\n" "$@"
-    usage
+    printf "Error: %s\n" "$1" 1>&2
+    usage 1>&2
     exit 1
 }
 
+# Print usage message
 usage() {
     echo "Usage: $0 [-h | -i ip_address]"
 }
 
 # Silence curl progess bars
+#
+# $@: curl flags and arguments.
 curl() {
     command curl -s "$@"
 }
 
-# Wrapper function for curl posts. Adds Authorization and Content-Type header.
+# Wrapper function for curl requests to CloudFlare.
+#
+# Adds Authorization and Content-Type header.
 # Optionally adds JSON data.
 #
 # $1: HTTP method
 # $2: URL
 # $3: JSON Data (optional)
-curl_wrapper() {
+curl_cloudflare() {
     command="curl -X '$1' '$API_URL$2' -H 'Content-Type: application/json' -H 'Authorization: Bearer $CLOUDFLARE_TOKEN'"
 
     if [ -n "${3-}" ]; then command="$command -d '$3'"; fi
@@ -41,6 +53,7 @@ curl_wrapper() {
     eval "$command"
 }
 
+# Check dependencies, read configuration, check required environment variables.
 init_environment() {
     if ! command -v jq >/dev/null; then exit_with_error "jq is required."; fi
 
@@ -52,6 +65,7 @@ init_environment() {
     if [ -z "${CLOUDFLARE_ZONE_ID-}" ]; then exit_with_error "CLOUDFLARE_ZONE_ID is not set."; fi
 }
 
+# Handle command line arguments with getopts.
 handle_arguments() {
     # ':'-prefix indicates we handle errors ourselves.
     #
@@ -64,7 +78,7 @@ handle_arguments() {
                 exit_with_error "'-i' requires an IP address as argument."
             fi
 
-            NEW_IP=$OPTARG
+            USER_IP=$OPTARG
             ;;
         h)
             usage
@@ -100,6 +114,7 @@ is_public_ip_changed() {
     fi
 }
 
+# Returns the last IP address, if any.
 get_last_ip() {
     ip_file=$(get_last_ip_file)
 
@@ -108,6 +123,7 @@ get_last_ip() {
     fi
 }
 
+# Gets the expected filename of the last IP file.
 get_last_ip_file() {
     if [ "$(id -u)" = "0" ]; then
         echo "$SYSTEM_CONFIG_DIR/$LAST_IP_FILE"
@@ -116,6 +132,9 @@ get_last_ip_file() {
     fi
 }
 
+# Save a new IP address to the last IP file.
+#
+# $1: IP address
 save_last_ip() {
     ip_file=$(get_last_ip_file)
 
@@ -125,6 +144,9 @@ save_last_ip() {
 # Gets the public ip of the server.
 get_public_ip() {
     TEMP_FILE=$(mktemp)
+
+    # This writes the output of curl to $TEMP_FILE and writes the response
+    # code to stdout.
     status=$(curl -o "$TEMP_FILE" -w "%{response_code}" 'http://ipecho.net/plain')
 
     if [ "$status" -ne "200" ]; then
@@ -140,9 +162,12 @@ get_public_ip() {
 
 # Gets all DNS records for $CLOUDFLARE_DOMAIN
 get_dns_records() {
-    curl_wrapper GET "/zones/$CLOUDFLARE_ZONE_ID/dns_records"
+    curl_cloudflare GET "/zones/$CLOUDFLARE_ZONE_ID/dns_records"
 }
 
+# Checks if the response was successful.
+# Prints the error and exits if not.
+#
 # $1: API Response, JSON Object
 check_api_error() {
     result=$(echo "$1" | jq '.success')
@@ -157,7 +182,8 @@ main() {
 
     handle_arguments "$@"
 
-    new_ip=${NEW_IP-$(get_public_ip)}
+    # ':-' expands fallback if not set or null.
+    new_ip=${USER_IP:-$(get_public_ip)}
 
     if is_public_ip_changed "$new_ip"; then
         response=$(get_dns_records)
@@ -170,7 +196,7 @@ main() {
         for record in $a_records; do
             id=$(echo "$record" | jq -r '.id')
 
-            response=$(curl_wrapper PATCH "/zones/$CLOUDFLARE_ZONE_ID/dns_records/$id" "{ \"content\": \"$new_ip\" }")
+            response=$(curl_cloudflare PATCH "/zones/$CLOUDFLARE_ZONE_ID/dns_records/$id" "{ \"content\": \"$new_ip\" }")
             check_api_error "$response"
 
             printf "Updated '%s' record.\n" "$(echo "$record" | jq -r '.name')"

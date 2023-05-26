@@ -6,3 +6,5 @@ src/
 *.json
 *.txt
 *.zst
+
+/target

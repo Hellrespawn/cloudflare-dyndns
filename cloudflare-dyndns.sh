@@ -204,7 +204,7 @@ main() {
 
         save_last_ip "$new_ip"
 
-        echo "Updated IP address in cache".
+        echo "Updated IP address in cache."
     fi
 }
 

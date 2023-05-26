@@ -1,3 +1,4 @@
+# FIXME makepkg cant user srcdir, it already exists!
 # Maintainer: Stef Korporaal
 pkgname=cloudflare-dyndns
 pkgver=0.2

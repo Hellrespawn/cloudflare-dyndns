@@ -1,8 +1,5 @@
 .env
 
-pkg/
-src/
-
 *.json
 *.txt
 *.zst

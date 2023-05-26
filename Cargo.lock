@@ -150,6 +150,7 @@ dependencies = [
  "dirs",
  "dotenvy",
  "fs-err",
+ "once_cell",
  "reqwest",
  "serde",
  "serde_json",

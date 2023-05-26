@@ -1,11 +1,10 @@
+use crate::API_URL;
 use anyhow::{bail, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-const API_URL: &str = "https://api.cloudflare.com/client/v4";
-
 #[derive(Deserialize, Debug)]
-struct ErrorResponse {
+struct ResponseError {
     code: isize,
     message: String,
 }
@@ -22,7 +21,7 @@ pub struct DNSRecord {
 #[derive(Deserialize, Debug)]
 struct GetRecordsResponse {
     success: bool,
-    errors: Vec<ErrorResponse>,
+    errors: Vec<ResponseError>,
     result: Vec<DNSRecord>,
 }
 
@@ -34,10 +33,10 @@ pub struct PatchRecordBody<'p> {
 #[derive(Deserialize, Debug)]
 struct PatchRecordResponse {
     success: bool,
-    errors: Vec<ErrorResponse>,
+    errors: Vec<ResponseError>,
 }
 
-fn transform_error_responses(errors: &[ErrorResponse]) -> String {
+fn transform_error_responses(errors: &[ResponseError]) -> String {
     errors
         .iter()
         .map(|e| format!("{}: {}", e.code, e.message))

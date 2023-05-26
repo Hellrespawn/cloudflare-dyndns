@@ -1,9 +1,6 @@
-use anyhow::{anyhow, bail, Result};
-use fs_err as fs;
+use crate::{read_file_optional, SYSTEM_CONFIG_PATH, USER_CONFIG_PATH};
+use anyhow::{anyhow, Result};
 use std::collections::HashMap;
-use std::path::Path;
-
-const FILENAME: &str = "cloudflare-dyndns.conf";
 
 #[derive(Debug)]
 pub struct Config {
@@ -15,16 +12,34 @@ impl Config {
     pub fn read() -> Result<Config> {
         let mut map = HashMap::new();
 
-        Self::read_file(
-            &format!("/etc/cloudflare-dyndns/{}", FILENAME),
-            &mut map,
-        )?;
+        if let Some(file_body) = read_file_optional(&SYSTEM_CONFIG_PATH) {
+            Self::get_map_from_string(&file_body, &mut map)?;
+        }
 
-        let config_dir = dirs::config_dir()
-            .ok_or(anyhow!("Unable to read user configuration directory."))?;
+        if let Some(file_body) = read_file_optional(&USER_CONFIG_PATH) {
+            Self::get_map_from_string(&file_body, &mut map)?;
+        }
 
-        Self::read_file(config_dir.join(FILENAME), &mut map)?;
+        Self::from_hashmap(&map)
+    }
 
+    fn get_map_from_string(
+        file_body: &str,
+        map: &mut HashMap<String, String>,
+    ) -> Result<()> {
+        for line in file_body.lines() {
+            let (k, v) = line
+                .trim()
+                .split_once('=')
+                .ok_or(anyhow!("Line '{}' is not a 'KEY=VALUE' pair.", line))?;
+
+            map.insert(k.trim().to_uppercase(), v.trim().to_owned());
+        }
+
+        Ok(())
+    }
+
+    fn from_hashmap(map: &HashMap<String, String>) -> Result<Self> {
         let token = map
             .get("CLOUDFLARE_TOKEN")
             .ok_or(anyhow!("CLOUDFLARE_TOKEN is not set."))?
@@ -36,29 +51,5 @@ impl Config {
             .clone();
 
         Ok(Config { token, zone_id: id })
-    }
-
-    fn read_file<P: AsRef<Path>>(
-        path: P,
-        map: &mut HashMap<String, String>,
-    ) -> Result<()> {
-        let file_body = match fs::read_to_string(path) {
-            Ok(string) => string,
-            Err(error) => match error.kind() {
-                std::io::ErrorKind::NotFound => return Ok(()),
-                _ => bail!(error),
-            },
-        };
-
-        for line in file_body.lines() {
-            let (k, v) = line
-                .trim()
-                .split_once('=')
-                .ok_or(anyhow!("Line '{}' is not a 'KEY=VALUE' pair.", line))?;
-
-            map.insert(k.trim().to_uppercase(), v.trim().to_owned());
-        }
-
-        Ok(())
     }
 }

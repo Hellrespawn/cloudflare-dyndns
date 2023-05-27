@@ -4,7 +4,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
-struct ResponseError {
+struct CloudFlareError {
     code: isize,
     message: String,
 }
@@ -19,68 +19,90 @@ pub struct DNSRecord {
 }
 
 #[derive(Deserialize, Debug)]
-struct GetRecordsResponse {
+pub struct GetRecordsResponse {
     success: bool,
-    errors: Vec<ResponseError>,
+    errors: Vec<CloudFlareError>,
     result: Vec<DNSRecord>,
 }
 
+impl GetRecordsResponse {
+    pub async fn get(client: &Client, zone_id: &str) -> Result<Self> {
+        let response = client
+            .get(format!("{API_URL}/zones/{zone_id}/dns_records"))
+            .send()
+            .await?
+            .json::<GetRecordsResponse>()
+            .await?;
+
+        if !response.success {
+            bail!(transform_error_responses(&response.errors))
+        }
+
+        Ok(response)
+    }
+
+    pub fn create_patch_record_bodies<'a>(
+        &'a self,
+        ip_address: &'a str,
+    ) -> Vec<PatchRecordRequest> {
+        self.result
+            .iter()
+            .filter_map(|record| {
+                if record.record_type == "A" {
+                    Some(PatchRecordRequest {
+                        name: &record.name,
+                        record_id: &record.id,
+                        ip_address,
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+}
+
 #[derive(Serialize, Debug)]
-pub struct PatchRecordBody<'p> {
-    content: &'p str,
+pub struct PatchRecordRequest<'p> {
+    #[serde(skip)]
+    pub name: &'p str,
+    #[serde(skip)]
+    record_id: &'p str,
+    #[serde(rename = "content")]
+    ip_address: &'p str,
+}
+
+impl<'p> PatchRecordRequest<'p> {
+    pub async fn patch(&self, client: &Client, zone_id: &str) -> Result<()> {
+        let response = client
+            .patch(format!(
+                "{API_URL}/zones/{zone_id}/dns_records/{}",
+                self.record_id
+            ))
+            .json(self)
+            .send()
+            .await?
+            .json::<PatchRecordResponse>()
+            .await?;
+
+        if !response.success {
+            bail!(transform_error_responses(&response.errors))
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Deserialize, Debug)]
 struct PatchRecordResponse {
     success: bool,
-    errors: Vec<ResponseError>,
+    errors: Vec<CloudFlareError>,
 }
 
-fn transform_error_responses(errors: &[ResponseError]) -> String {
+fn transform_error_responses(errors: &[CloudFlareError]) -> String {
     errors
         .iter()
         .map(|e| format!("{}: {}", e.code, e.message))
         .collect::<Vec<_>>()
         .join("\n")
-}
-
-pub async fn get_records(
-    client: &Client,
-    zone_id: &str,
-) -> Result<Vec<DNSRecord>> {
-    let response = client
-        .get(format!("{API_URL}/zones/{zone_id}/dns_records"))
-        .send()
-        .await?
-        .json::<GetRecordsResponse>()
-        .await?;
-
-    if !response.success {
-        bail!(transform_error_responses(&response.errors))
-    }
-
-    Ok(response.result)
-}
-
-pub async fn patch_record(
-    client: &Client,
-    zone_id: &str,
-    record_id: &str,
-    ip_address: &str,
-) -> Result<()> {
-    let response = client
-        .patch(format!("{API_URL}/zones/{zone_id}/dns_records/{record_id}"))
-        .json(&PatchRecordBody {
-            content: ip_address,
-        })
-        .send()
-        .await?
-        .json::<PatchRecordResponse>()
-        .await?;
-
-    if !response.success {
-        bail!(transform_error_responses(&response.errors))
-    }
-
-    Ok(())
 }

@@ -4,21 +4,24 @@ Dynamic DNS script for CloudFlare. Checks the public IP and, if changed, update 
 
 Includes systemd service and timer.
 
+Requires Rust.
+
 ## Installation
 
 ### Arch Linux
 
-Use `makepkg` to create and install a package.
+Run `makepkg` in the `PKGBUILD`-folder to create and install a package.
 
 ```sh
 makepkg \
   --install \
-  --syncdeps  # Also install dependencies
+  --syncdeps \  # Also install dependencies
+  --rmdeps  # Remove dependencies after install
 ```
 
 ### Manual installation
 
-This script relies on `jq` and a POSIX-shell. Copy `cloudflare-dyndns.sh` to a location on your `$PATH`.
+Run `cargo install` to install it to your personal `cargo` bin. Make sure it's on your `$PATH`.
 
 If using systemd, copy `service` to `/etc/systemd/cloudflare-dyndns.service` and `timer` to `/etc/systemd/cloudflare-dyndns.timer`.
 
@@ -34,6 +37,18 @@ CLOUDFLARE_ZONE_ID=<Zone ID>
 ```
 
 ## Usage
+
+```txt
+Dynamic DNS for CloudFlare.
+
+Usage: cloudflare-dyndns [OPTIONS]
+
+Options:
+  -i, --ip-address <IP_ADDRESS>  User-supplied IP address
+  -p, --preview                  Don't update records, only show changes [aliases: dry_run] [short aliases: d]
+  -h, --help                     Print help
+  -V, --version                  Print version
+```
 
 ### Manual usage
 

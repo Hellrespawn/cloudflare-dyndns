@@ -1,0 +1,40 @@
+# Maintainer: Stef Korporaal
+pkgname=cloudflare-dyndns
+pkgver=0.3
+pkgrel=1
+pkgdesc="Dynamic DNS for CloudFlare."
+arch=('any')
+url="https://github.com/Hellrespawn/cloudflare-dyndns"
+license=('BSD 3-Clause')
+makedepends=('cargo' 'git')
+backup=("etc/cloudflare-dyndns/cloudflare-dyndns.conf")
+
+parent_dir=$(dirname "$PWD")
+
+source=("$pkgname::git+file://$parent_dir"
+	"service"
+	"timer"
+	"cloudflare-dyndns.conf")
+
+sha256sums=('SKIP'
+	'f51bc911fc085cbd28e2e38bf62b4cc5886ed7a4dac2d41cf432bc373a3e897e'
+	'720ebde0cd013756bf3ade0eff876ad7d503ea7a13ec00b48d960170dca65673'
+	'a814ed5079a20af7ca7471a6bec2dad137ba90806e36b06c3d3fe71dfb7387cd')
+
+prepare() {
+	export RUSTUP_TOOLCHAIN=stable
+	cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
+}
+
+build() {
+	export RUSTUP_TOOLCHAIN=stable
+	export CARGO_TARGET_DIR=target
+	cargo build --frozen --release --all-features
+}
+
+package() {
+	install -Dm755 "$srcdir/target/release/$pkgname" "$pkgdir/usr/bin/$pkgname"
+	install -Dm644 "$srcdir/cloudflare-dyndns.conf" "$pkgdir/etc/cloudflare-dyndns/cloudflare-dyndns.conf"
+	install -Dm644 "$srcdir/service" "$pkgdir/usr/lib/systemd/system/cloudflare-dyndns.service"
+	install -Dm644 "$srcdir/timer" "$pkgdir/usr/lib/systemd/system/cloudflare-dyndns.timer"
+}

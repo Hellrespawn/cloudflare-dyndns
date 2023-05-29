@@ -1,3 +1,8 @@
 /target
-/.PKGBUILD
+
+/.PKGBUILD/pkg
+/.PKGBUILD/src
+/.PKGBUILD/cloudflare-dyndns
+/.PKGBUILD/*.zst
+
 

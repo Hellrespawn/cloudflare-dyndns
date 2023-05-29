@@ -1,6 +1,6 @@
 # Maintainer: Stef Korporaal
 pkgname=cloudflare-dyndns
-pkgver=0.3
+pkgver="0.3.0"
 pkgrel=1
 pkgdesc="Dynamic DNS for CloudFlare."
 arch=('any')

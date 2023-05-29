@@ -1,7 +1,8 @@
-use crate::API_URL;
 use anyhow::{bail, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+
+pub const API_URL: &str = "https://api.cloudflare.com/client/v4";
 
 #[derive(Deserialize, Debug)]
 struct CloudFlareError {

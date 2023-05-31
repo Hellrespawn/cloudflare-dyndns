@@ -58,6 +58,22 @@ You can also run `cloudflare-dyndns -i <IP Address>` to manually specify the IP 
 
 Consider using the systemd service or adding an entry to your `crontab`.
 
+### crontab
+
+You can add `cloudflare-dyndns` to your crontab.
+
+```crontab
+"*/15 * * * *  /usr/bin/cloudflare-dyndns >> /var/log/cloudflare-dyndns.log 2>&1"
+```
+
+This will run every 15 minutes, logging the output to a file.
+
+Use the following command or similar to add it to your crontab.
+
+```sh
+$ printf "%s\n%s\n" "$(crontab -l)" "*/15 * * * *  /usr/bin/cloudflare-dyndns >> /var/log/cloudflare-dyndns.log 2>&1" | crontab -
+```
+
 ### systemd
 
 You can run `cloudflare-dyndns.service` to manually update the IP address once.

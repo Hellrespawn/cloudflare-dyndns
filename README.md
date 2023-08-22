@@ -71,7 +71,7 @@ This will run every 15 minutes, logging the output to a file.
 Use the following command or similar to add it to your crontab.
 
 ```sh
-$ printf "%s\n%s\n" "$(crontab -l)" "*/15 * * * *  /usr/bin/cloudflare-dyndns >> /var/log/cloudflare-dyndns.log 2>&1" | crontab -
+printf "%s\n%s\n" "$(crontab -l)" "*/15 * * * *  /usr/bin/cloudflare-dyndns >> /var/log/cloudflare-dyndns.log 2>&1" | crontab -
 ```
 
 ### systemd

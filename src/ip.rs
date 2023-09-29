@@ -1,5 +1,6 @@
 use crate::{read_file_optional, CONFIG_PATHS};
-use anyhow::{bail, Result};
+use color_eyre::eyre::eyre;
+use color_eyre::Result;
 use fs_err as fs;
 
 pub enum IpAddress {
@@ -42,10 +43,12 @@ impl IpAddress {
         if fs::write(&CONFIG_PATHS.system.previous_ip, ip_address).is_err()
             && fs::write(&CONFIG_PATHS.user.previous_ip, ip_address).is_err()
         {
-            bail!("Unable to update previous IP address: '{ip_address}'")
+            Err(eyre!(
+                "Unable to update previous IP address: '{ip_address}'"
+            ))
+        } else {
+            Ok(())
         }
-
-        Ok(())
     }
 
     fn get_variant(

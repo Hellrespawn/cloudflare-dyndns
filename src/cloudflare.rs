@@ -1,4 +1,5 @@
-use anyhow::{bail, Result};
+use color_eyre::eyre::eyre;
+use color_eyre::Result;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -35,11 +36,11 @@ impl GetRecordsResponse {
             .json::<GetRecordsResponse>()
             .await?;
 
-        if !response.success {
-            bail!(transform_error_responses(&response.errors))
+        if response.success {
+            Ok(response)
+        } else {
+            Err(eyre!(transform_error_responses(&response.errors)))
         }
-
-        Ok(response)
     }
 
     pub fn create_patch_record_bodies<'a>(
@@ -86,11 +87,11 @@ impl<'p> PatchRecordRequest<'p> {
             .json::<PatchRecordResponse>()
             .await?;
 
-        if !response.success {
-            bail!(transform_error_responses(&response.errors))
+        if response.success {
+            Ok(())
+        } else {
+            Err(eyre!(transform_error_responses(&response.errors)))
         }
-
-        Ok(())
     }
 }
 

@@ -1,4 +1,5 @@
-use anyhow::{anyhow, bail, Result};
+use color_eyre::eyre::eyre;
+use color_eyre::Result;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -62,11 +63,11 @@ impl Settings {
     fn from_dto(settings_dto: SettingsDTO) -> Result<Settings> {
         let token = settings_dto
             .token
-            .ok_or(anyhow!("CLOUDFLARE_TOKEN is not set."))?;
+            .ok_or(eyre!("CLOUDFLARE_TOKEN is not set."))?;
 
         let zone_id = settings_dto
             .zone_id
-            .ok_or(anyhow!("CLOUDFLARE_ZONE_ID is not set."))?;
+            .ok_or(eyre!("CLOUDFLARE_ZONE_ID is not set."))?;
 
         Ok(Settings { token, zone_id })
     }
@@ -112,13 +113,13 @@ impl SettingsDTO {
             let (k, v) = line
                 .trim()
                 .split_once('=')
-                .ok_or(anyhow!("Line '{}' is not a 'KEY=VALUE' pair.", line))?;
+                .ok_or(eyre!("Line '{}' is not a 'KEY=VALUE' pair.", line))?;
 
             if !k
                 .chars()
                 .all(|c| c.is_ascii_uppercase() || "-_".contains(c))
             {
-                bail!("Invalid option: '{}'\nOptions must be uppercase characters.", k)
+                return Err(eyre!("Invalid option: '{}'\nOptions must be uppercase characters.", k));
             }
 
             map.insert(k.trim().to_owned(), v.trim().to_owned());

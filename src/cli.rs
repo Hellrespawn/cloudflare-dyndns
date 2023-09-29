@@ -1,7 +1,8 @@
 use crate::cloudflare::GetRecordsResponse;
 use crate::ip::IpAddress;
 use crate::{Args, Settings};
-use anyhow::{anyhow, Result};
+use color_eyre::eyre::eyre;
+use color_eyre::Result;
 use reqwest::header::HeaderMap;
 use reqwest::Client;
 
@@ -60,13 +61,13 @@ fn create_client(token: &str) -> Result<Client> {
         "Content-Type",
         "application/json"
             .parse()
-            .map_err(|_| anyhow!("Invalid 'Content-Type' header."))?,
+            .map_err(|_| eyre!("Invalid 'Content-Type' header."))?,
     );
     headers.insert(
         "Authorization",
         format!("Bearer {}", token)
             .parse()
-            .map_err(|_| anyhow!("Invalid 'Authorization' header."))?,
+            .map_err(|_| eyre!("Invalid 'Authorization' header."))?,
     );
 
     let client = Client::builder().default_headers(headers).build()?;

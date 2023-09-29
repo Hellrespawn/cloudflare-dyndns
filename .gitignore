@@ -5,4 +5,4 @@
 /.PKGBUILD/cloudflare-dyndns
 /.PKGBUILD/*.zst
 
-
+.env

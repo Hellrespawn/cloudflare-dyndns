@@ -1,10 +1,8 @@
+use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-
-use crate::read_file_optional;
 
 #[derive(Debug)]
 pub struct ConfigPaths {
@@ -14,23 +12,28 @@ pub struct ConfigPaths {
 
 #[derive(Debug)]
 pub struct ConfigPath {
-    pub settings: PathBuf,
-    pub previous_ip: PathBuf,
+    pub settings: Utf8PathBuf,
+    pub previous_ip: Utf8PathBuf,
 }
 
 pub static CONFIG_PATHS: Lazy<ConfigPaths> = Lazy::new(|| {
+    get_config_paths().expect("Unable to init configuration paths.")
+});
+
+pub fn get_config_paths() -> Result<ConfigPaths> {
     let pkg_name: &str = env!("CARGO_PKG_NAME");
 
     let settings_file_name = format!("{pkg_name}.conf");
     let previous_ip_file_name = format!("{pkg_name}-previous_ip");
 
-    let system_config_directory = PathBuf::from(format!("/etc/{pkg_name}"));
+    let system_config_directory = Utf8PathBuf::from(format!("/etc/{pkg_name}"));
 
-    let user_config_directory = dirs::config_dir()
-        .expect("Unable to read user config directory.")
-        .join(pkg_name);
+    let user_config_directory: Utf8PathBuf = dirs::config_dir()
+        .ok_or(eyre!("Unable to read user config directory."))?
+        .join(pkg_name)
+        .try_into()?;
 
-    ConfigPaths {
+    Ok(ConfigPaths {
         system: ConfigPath {
             settings: system_config_directory.join(&settings_file_name),
             previous_ip: system_config_directory.join(&previous_ip_file_name),
@@ -39,8 +42,8 @@ pub static CONFIG_PATHS: Lazy<ConfigPaths> = Lazy::new(|| {
             settings: user_config_directory.join(settings_file_name),
             previous_ip: user_config_directory.join(previous_ip_file_name),
         },
-    }
-});
+    })
+}
 
 #[derive(Debug)]
 pub struct Settings {
@@ -51,11 +54,10 @@ pub struct Settings {
 impl Settings {
     pub fn read() -> Result<Settings> {
         let system_settings_dto =
-            SettingsDTO::from_file_optional(&CONFIG_PATHS.system.settings)?;
+            SettingsDTO::from_file(&CONFIG_PATHS.system.settings)?;
 
-        let settings_dto = system_settings_dto.merge(
-            SettingsDTO::from_file_optional(&CONFIG_PATHS.user.settings)?,
-        );
+        let settings_dto = system_settings_dto
+            .merge(SettingsDTO::from_file(&CONFIG_PATHS.user.settings)?);
 
         Self::from_dto(settings_dto)
     }
@@ -73,7 +75,7 @@ impl Settings {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct SettingsDTO {
     token: Option<String>,
     zone_id: Option<String>,
@@ -87,45 +89,18 @@ impl SettingsDTO {
         }
     }
 
-    fn from_file_optional(path: &Path) -> Result<Self> {
-        let string = read_file_optional(path);
+    fn from_file(path: &Utf8Path) -> Result<Self> {
+        if path.is_file() {
+            let map = dotenvy::from_path_iter(path)?
+                .map(|pair| Ok(pair?))
+                .collect::<Result<HashMap<String, String>>>()?;
 
-        if let Some(body) = string {
-            let dto = Self::from_string(&body)?;
-
-            Ok(dto)
+            Ok(Self::from_hashmap(map))
+        } else if path.exists() {
+            Err(eyre!("Path exists but is not a file: {}", path))
         } else {
-            Ok(Self {
-                token: None,
-                zone_id: None,
-            })
+            Ok(Self::default())
         }
-    }
-
-    fn from_string(string: &str) -> Result<Self> {
-        Ok(Self::from_hashmap(Self::read_string_to_map(string)?))
-    }
-
-    fn read_string_to_map(file_body: &str) -> Result<HashMap<String, String>> {
-        let mut map = HashMap::new();
-
-        for line in file_body.lines() {
-            let (k, v) = line
-                .trim()
-                .split_once('=')
-                .ok_or(eyre!("Line '{}' is not a 'KEY=VALUE' pair.", line))?;
-
-            if !k
-                .chars()
-                .all(|c| c.is_ascii_uppercase() || "-_".contains(c))
-            {
-                return Err(eyre!("Invalid option: '{}'\nOptions must be uppercase characters.", k));
-            }
-
-            map.insert(k.trim().to_owned(), v.trim().to_owned());
-        }
-
-        Ok(map)
     }
 
     fn from_hashmap(mut map: HashMap<String, String>) -> Self {

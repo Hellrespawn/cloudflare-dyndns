@@ -1,5 +1,5 @@
 use color_eyre::eyre::eyre;
-use color_eyre::Result;
+use color_eyre::{Report, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -39,7 +39,7 @@ impl GetRecordsResponse {
         if response.success {
             Ok(response)
         } else {
-            Err(eyre!(transform_error_responses(&response.errors)))
+            Err(transform_error_responses(&response.errors))
         }
     }
 
@@ -90,7 +90,7 @@ impl<'p> PatchRecordRequest<'p> {
         if response.success {
             Ok(())
         } else {
-            Err(eyre!(transform_error_responses(&response.errors)))
+            Err(transform_error_responses(&response.errors))
         }
     }
 }
@@ -101,10 +101,10 @@ struct PatchRecordResponse {
     errors: Vec<CloudFlareError>,
 }
 
-fn transform_error_responses(errors: &[CloudFlareError]) -> String {
-    errors
+fn transform_error_responses(errors: &[CloudFlareError]) -> Report {
+    eyre!(errors
         .iter()
         .map(|e| format!("{}: {}", e.code, e.message))
         .collect::<Vec<_>>()
-        .join("\n")
+        .join("\n"))
 }

@@ -19,8 +19,8 @@ pub use args::Args;
 pub use config::{Settings, CONFIG_PATHS};
 
 use fs_err as fs;
-use std::path::Path;
+use camino::Utf8Path;
 
-pub fn read_file_optional(path: &Path) -> Option<String> {
+pub fn read_file_optional(path: &Utf8Path) -> Option<String> {
     fs::read_to_string(path).ok().map(|s| s.trim().to_owned())
 }

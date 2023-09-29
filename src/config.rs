@@ -10,6 +10,16 @@ pub struct ConfigPaths {
     pub user: ConfigPath,
 }
 
+impl std::fmt::Display for ConfigPaths {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "  {}\n  {}",
+            CONFIG_PATHS.system.settings, CONFIG_PATHS.user.settings
+        )
+    }
+}
+
 #[derive(Debug)]
 pub struct ConfigPath {
     pub settings: Utf8PathBuf,
@@ -56,22 +66,46 @@ impl Settings {
         let system_settings_dto =
             SettingsDTO::from_file(&CONFIG_PATHS.system.settings)?;
 
-        let settings_dto = system_settings_dto
-            .merge(SettingsDTO::from_file(&CONFIG_PATHS.user.settings)?);
+        let user_settings_dto =
+            SettingsDTO::from_file(&CONFIG_PATHS.user.settings)?;
 
-        Self::from_dto(settings_dto)
+        if system_settings_dto.is_none() && user_settings_dto.is_none() {
+            Err(eyre!(
+                "Unable to find configuration files:\n{}",
+                *CONFIG_PATHS
+            ))
+        } else {
+            Self::from_dto(
+                system_settings_dto
+                    .unwrap_or_default()
+                    .merge(user_settings_dto.unwrap_or_default()),
+            )
+        }
     }
 
     fn from_dto(settings_dto: SettingsDTO) -> Result<Settings> {
-        let token = settings_dto
-            .token
-            .ok_or(eyre!("CLOUDFLARE_TOKEN is not set."))?;
+        let mut missing = Vec::new();
 
-        let zone_id = settings_dto
-            .zone_id
-            .ok_or(eyre!("CLOUDFLARE_ZONE_ID is not set."))?;
+        if settings_dto.token.is_none() {
+            missing.push("CLOUDFLARE_TOKEN");
+        }
 
-        Ok(Settings { token, zone_id })
+        if settings_dto.zone_id.is_none() {
+            missing.push("CLOUDFLARE_ZONE_ID");
+        }
+
+        if missing.is_empty() {
+            Ok(Settings {
+                token: settings_dto.token.unwrap(),
+                zone_id: settings_dto.zone_id.unwrap(),
+            })
+        } else {
+            Err(eyre!(
+                "Unable to read variables: {}\nCheck your confguration files:\n{}",
+                missing.join(", "),
+                *CONFIG_PATHS
+            ))
+        }
     }
 }
 
@@ -89,17 +123,17 @@ impl SettingsDTO {
         }
     }
 
-    fn from_file(path: &Utf8Path) -> Result<Self> {
+    fn from_file(path: &Utf8Path) -> Result<Option<Self>> {
         if path.is_file() {
             let map = dotenvy::from_path_iter(path)?
                 .map(|pair| Ok(pair?))
                 .collect::<Result<HashMap<String, String>>>()?;
 
-            Ok(Self::from_hashmap(map))
+            Ok(Some(Self::from_hashmap(map)))
         } else if path.exists() {
             Err(eyre!("Path exists but is not a file: {}", path))
         } else {
-            Ok(Self::default())
+            Ok(None)
         }
     }
 

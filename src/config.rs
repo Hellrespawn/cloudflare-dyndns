@@ -1,8 +1,9 @@
+use std::collections::HashMap;
+
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct ConfigPaths {
@@ -70,10 +71,7 @@ impl Settings {
             SettingsDTO::from_file(&CONFIG_PATHS.user.settings)?;
 
         if system_settings_dto.is_none() && user_settings_dto.is_none() {
-            Err(eyre!(
-                "Unable to find configuration files:\n{}",
-                *CONFIG_PATHS
-            ))
+            Err(eyre!("Unable to find configuration files:\n{}", *CONFIG_PATHS))
         } else {
             Self::from_dto(
                 system_settings_dto

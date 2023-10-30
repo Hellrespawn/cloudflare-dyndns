@@ -1,15 +1,13 @@
-use crate::{read_file_optional, CONFIG_PATHS};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use fs_err as fs;
 
+use crate::{read_file_optional, CONFIG_PATHS};
+
 pub enum IpAddress {
     New(String),
     Unchanged(String),
-    Changed {
-        new_ip_address: String,
-        previous_ip_address: String,
-    },
+    Changed { new_ip_address: String, previous_ip_address: String },
 }
 
 impl IpAddress {
@@ -35,7 +33,7 @@ impl IpAddress {
                 } else {
                     None
                 }
-            }
+            },
         }
     }
 
@@ -43,9 +41,7 @@ impl IpAddress {
         if fs::write(&CONFIG_PATHS.system.previous_ip, ip_address).is_err()
             && fs::write(&CONFIG_PATHS.user.previous_ip, ip_address).is_err()
         {
-            Err(eyre!(
-                "Unable to update previous IP address: '{ip_address}'"
-            ))
+            Err(eyre!("Unable to update previous IP address: '{ip_address}'"))
         } else {
             Ok(())
         }
@@ -59,10 +55,7 @@ impl IpAddress {
             if new_ip_address == previous_ip_address {
                 Self::Unchanged(new_ip_address)
             } else {
-                Self::Changed {
-                    new_ip_address,
-                    previous_ip_address,
-                }
+                Self::Changed { new_ip_address, previous_ip_address }
             }
         } else {
             Self::New(new_ip_address)
@@ -70,10 +63,7 @@ impl IpAddress {
     }
 
     async fn get_public_ip_address() -> Result<String> {
-        Ok(reqwest::get("https://ipecho.net/plain")
-            .await?
-            .text()
-            .await?)
+        Ok(reqwest::get("https://ipecho.net/plain").await?.text().await?)
     }
 
     fn get_previous_ip_address() -> Option<String> {

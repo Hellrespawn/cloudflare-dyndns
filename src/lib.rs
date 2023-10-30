@@ -16,10 +16,9 @@ pub mod cloudflare;
 pub mod ip;
 
 pub use args::Args;
-pub use config::{Settings, CONFIG_PATHS};
-
-use fs_err as fs;
 use camino::Utf8Path;
+pub use config::{Settings, CONFIG_PATHS};
+use fs_err as fs;
 
 pub fn read_file_optional(path: &Utf8Path) -> Option<String> {
     fs::read_to_string(path).ok().map(|s| s.trim().to_owned())

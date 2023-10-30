@@ -1,10 +1,11 @@
-use crate::cloudflare::GetRecordsResponse;
-use crate::ip::IpAddress;
-use crate::{Args, Settings};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use reqwest::header::HeaderMap;
 use reqwest::Client;
+
+use crate::cloudflare::GetRecordsResponse;
+use crate::ip::IpAddress;
+use crate::{Args, Settings};
 
 pub async fn main() -> Result<()> {
     let args = Args::parse();
@@ -53,7 +54,7 @@ pub async fn main() -> Result<()> {
     Ok(())
 }
 
-/** Create client with Content-Type and Authorization headers. */
+/// Create client with Content-Type and Authorization headers.
 fn create_client(token: &str) -> Result<Client> {
     let mut headers = HeaderMap::new();
 

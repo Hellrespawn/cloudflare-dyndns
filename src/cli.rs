@@ -5,13 +5,24 @@ use reqwest::Client;
 
 use crate::cloudflare::GetRecordsResponse;
 use crate::ip::IpAddress;
+use crate::ip::IpEcho;
+use crate::ip::IpQuery;
 use crate::{Args, Settings};
 
 pub async fn main() -> Result<()> {
     let args = Args::parse();
     let settings = Settings::read()?;
 
-    let ip_address = IpAddress::new(args.ip_address).await?;
+
+
+    let addr = if let Some(addr) = args.ip_address {
+        addr.parse()?
+    } else {
+        let query = get_query();
+        query.get_public_ip_address().await?
+    };
+
+    let ip_address = IpAddress::new(addr)?;
 
     println!("{ip_address}");
 
@@ -74,4 +85,8 @@ fn create_client(token: &str) -> Result<Client> {
     let client = Client::builder().default_headers(headers).build()?;
 
     Ok(client)
+}
+
+fn get_query() -> Box<dyn IpQuery> {
+    Box::new(IpEcho)
 }

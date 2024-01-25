@@ -1,3 +1,5 @@
+use std::net::Ipv4Addr;
+
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use fs_err as fs;
@@ -11,16 +13,10 @@ pub enum IpAddress {
 }
 
 impl IpAddress {
-    pub async fn new(new_ip_address: Option<String>) -> Result<IpAddress> {
-        let new_ip_address = if let Some(ip_address) = new_ip_address {
-            ip_address
-        } else {
-            Self::get_public_ip_address().await?
-        };
-
+    pub fn new(new_ip_address: Ipv4Addr) -> Result<IpAddress> {
         let previous_ip_address = Self::get_previous_ip_address();
 
-        Ok(Self::get_variant(new_ip_address, previous_ip_address))
+        Ok(Self::get_variant(new_ip_address.to_string(), previous_ip_address))
     }
 
     pub fn get_new_ip_address(&self, force: bool) -> Option<&str> {

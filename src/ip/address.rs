@@ -4,28 +4,31 @@ use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use fs_err as fs;
 
-use crate::{read_file_optional, CONFIG_PATHS};
+use crate::{read_file_optional, Settings};
 
 pub enum IpAddress {
-    New(String),
-    Unchanged(String),
-    Changed { new_ip_address: String, previous_ip_address: String },
+    New(Ipv4Addr),
+    Unchanged(Ipv4Addr),
+    Changed { new_ip_address: Ipv4Addr, previous_ip_address: Ipv4Addr },
 }
 
 impl IpAddress {
-    pub fn new(new_ip_address: Ipv4Addr) -> Result<IpAddress> {
-        let previous_ip_address = Self::get_previous_ip_address();
+    pub fn new(
+        new_ip_address: Ipv4Addr,
+        settings: &Settings,
+    ) -> Result<IpAddress> {
+        let previous_ip_address = Self::get_previous_ip_address(settings)?;
 
-        Ok(Self::get_variant(new_ip_address.to_string(), previous_ip_address))
+        Ok(Self::determine_variant(new_ip_address, previous_ip_address))
     }
 
-    pub fn get_new_ip_address(&self, force: bool) -> Option<&str> {
+    pub fn get_new_ip_address(&self, force: bool) -> Option<Ipv4Addr> {
         match self {
             IpAddress::Changed { new_ip_address, .. }
-            | IpAddress::New(new_ip_address) => Some(new_ip_address),
+            | IpAddress::New(new_ip_address) => Some(*new_ip_address),
             IpAddress::Unchanged(previous_ip_address) => {
                 if force {
-                    Some(previous_ip_address)
+                    Some(*previous_ip_address)
                 } else {
                     None
                 }
@@ -33,19 +36,22 @@ impl IpAddress {
         }
     }
 
-    pub fn update_previous_ip_address(ip_address: &str) -> Result<()> {
-        if fs::write(&CONFIG_PATHS.system.previous_ip, ip_address).is_err()
-            && fs::write(&CONFIG_PATHS.user.previous_ip, ip_address).is_err()
-        {
+    pub fn update_previous_ip_address(
+        ip_address: Ipv4Addr,
+        settings: &Settings,
+    ) -> Result<()> {
+        let ip_str = ip_address.to_string();
+
+        if fs::write(settings.get_previous_ip_file(), ip_str).is_err() {
             Err(eyre!("Unable to update previous IP address: '{ip_address}'"))
         } else {
             Ok(())
         }
     }
 
-    fn get_variant(
-        new_ip_address: String,
-        previous_ip_address: Option<String>,
+    fn determine_variant(
+        new_ip_address: Ipv4Addr,
+        previous_ip_address: Option<Ipv4Addr>,
     ) -> Self {
         if let Some(previous_ip_address) = previous_ip_address {
             if new_ip_address == previous_ip_address {
@@ -58,13 +64,12 @@ impl IpAddress {
         }
     }
 
-    async fn get_public_ip_address() -> Result<String> {
-        Ok(reqwest::get("https://ipecho.net/plain").await?.text().await?)
-    }
-
-    fn get_previous_ip_address() -> Option<String> {
-        read_file_optional(&CONFIG_PATHS.user.previous_ip)
-            .or_else(|| read_file_optional(&CONFIG_PATHS.system.previous_ip))
+    fn get_previous_ip_address(
+        settings: &Settings,
+    ) -> Result<Option<Ipv4Addr>> {
+        read_file_optional(&settings.get_previous_ip_file())
+            .map(|s| Ok(s.parse()?))
+            .transpose()
     }
 }
 

@@ -24,14 +24,12 @@ impl Settings {
         )?;
 
         let dto = match (system_settings_dto, user_settings_dto) {
-            (None, None) => {
-                Err(eyre!(
-                    "Unable to find configuration files:\n{}",
-                    *CONFIG_PATHS
-                ))
-            },
-            (None, Some(user)) => Ok(user),
-            (Some(system), None | Some(_)) => Ok(system),
+            (None, None) => Err(eyre!(
+                "Unable to find configuration files:\n{}",
+                *CONFIG_PATHS
+            )),
+            (None | Some(_), Some(user)) => Ok(user),
+            (Some(system), None) => Ok(system),
         }?;
 
         Self::from_dto(dto)

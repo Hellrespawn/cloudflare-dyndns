@@ -32,8 +32,13 @@ The script tries to read `/etc/cloudflare-dyndns/cloudflare-dyndns.conf` when ru
 The expected format is:
 
 ```sh
+# Requires DNS:Edit on the specified zones, or on all zones if you wish to query by name.
 CLOUDFLARE_TOKEN=<API token>
+
+# Either
 CLOUDFLARE_ZONE_ID=<Zone ID>
+# Or
+CLOUDFLARE_ZONE_NAME=<Zone name>
 ```
 
 ## Usage

@@ -11,8 +11,8 @@ pub static CONFIG_PATHS: Lazy<ConfigPaths> = Lazy::new(|| {
 
 #[derive(Debug)]
 pub struct ConfigPaths {
-    pub system: Utf8PathBuf,
-    pub user: Utf8PathBuf,
+    system: Utf8PathBuf,
+    user: Utf8PathBuf,
 }
 
 impl ConfigPaths {
@@ -29,6 +29,14 @@ impl ConfigPaths {
             system: system_config_directory,
             user: user_config_directory,
         })
+    }
+
+    pub fn system_config(&self) -> Utf8PathBuf {
+        self.system.join(format!("{PKG_NAME}.conf"))
+    }
+
+    pub fn user_config(&self) -> Utf8PathBuf {
+        self.user.join(format!("{PKG_NAME}.conf"))
     }
 }
 

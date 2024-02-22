@@ -1,57 +1,29 @@
-use std::collections::HashMap;
-
-use camino::{Utf8Path, Utf8PathBuf};
-use color_eyre::eyre::eyre;
 use color_eyre::Result;
 
+mod args;
+mod env;
 mod paths;
 mod settings;
-mod zone;
 
 use paths::CONFIG_PATHS;
 pub use settings::Settings;
-pub use zone::ZoneIdentifier;
 
-#[derive(Debug, Default)]
-struct SettingsDTO {
-    config_path: Utf8PathBuf,
-    token: Option<String>,
-    zone_id: Option<String>,
-    zone_name: Option<String>,
-}
+pub use self::args::Args;
 
-impl SettingsDTO {
-    fn from_file(path: &Utf8Path) -> Result<Option<Self>> {
-        if path.is_file() {
-            let mut map = dotenvy::from_path_iter(path)?
-                .map(|pair| Ok(pair?))
-                .collect::<Result<HashMap<String, String>>>()?;
+pub fn default_settings(args: Args) -> Result<Settings> {
+    let system_env = env::Env::from_file(&CONFIG_PATHS.system_config())?;
 
-            let token = map.remove("CLOUDFLARE_TOKEN");
-            let zone_id = map.remove("CLOUDFLARE_ZONE_ID");
-            let zone_name = map.remove("CLOUDFLARE_ZONE_NAME");
+    let user_env = env::Env::from_file(&CONFIG_PATHS.user_config())?;
 
-            Ok(Some(Self {
-                token,
-                zone_id,
-                zone_name,
-                config_path: path
-                    .parent()
-                    .expect("File path always has parent")
-                    .to_owned(),
-            }))
-        } else if path.exists() {
-            Err(eyre!("Path exists but is not a file: {}", path))
-        } else {
-            Ok(None)
-        }
-    }
-}
+    let settings = match (system_env, user_env) {
+        (None, None) => Settings::from_args(args, CONFIG_PATHS.user_config()),
+        (None, Some(env)) | (Some(env), None) => {
+            Settings::from_args_and_env(args, env)
+        },
+        (Some(system_env), Some(user_env)) => {
+            Settings::from_args_and_env(args, system_env.merge(user_env))
+        },
+    }?;
 
-fn create_missing_options_error(missing: &[&str]) -> color_eyre::Report {
-    eyre!(
-        "Unable to read variables: {}\nCheck your configuration files:\n{}",
-        missing.join(", "),
-        *CONFIG_PATHS
-    )
+    Ok(settings)
 }

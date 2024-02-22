@@ -1,5 +1,4 @@
-use cloudflare_dyndns::ip::get_ip_query_from_args;
-use cloudflare_dyndns::Args;
+use cloudflare_dyndns::config::{default_settings, Args};
 use color_eyre::Result;
 
 #[tokio::main]
@@ -7,9 +6,9 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
 
     let args = Args::parse();
+    let settings = default_settings(args)?;
 
-    let query = get_ip_query_from_args(&args);
-    let addr = query.get_public_ip_address().await?;
+    let addr = settings.ip.ip_address().await?;
 
     println!("Your public ip address is: {}", addr);
 

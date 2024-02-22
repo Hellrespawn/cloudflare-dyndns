@@ -8,13 +8,10 @@
 #![allow(unknown_lints)] // For nightly lints
 #![allow(clippy::uninlined_format_args)]
 
-mod args;
-pub mod config;
-
 pub mod cloudflare;
+pub mod config;
 pub mod ip;
 
-pub use args::Args;
 use camino::Utf8Path;
 pub use config::Settings;
 use fs_err as fs;

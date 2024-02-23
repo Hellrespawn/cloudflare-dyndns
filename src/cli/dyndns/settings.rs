@@ -1,6 +1,7 @@
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use nix::unistd::geteuid;
 
 use super::args::Args;
 use crate::config::env::Env;
@@ -124,7 +125,7 @@ impl Settings {
             .try_into()?;
 
         #[cfg(unix)]
-        if is_root::is_root() {
+        if geteuid().is_root() {
             config_dir = Utf8PathBuf::from(format!("/etc/{PKG_NAME}"));
         }
 

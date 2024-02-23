@@ -31,4 +31,4 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [target.'cfg(unix)'.dependencies]
-is-root = "0.1"
+nix = { version = "0.27", features = ["user"] }

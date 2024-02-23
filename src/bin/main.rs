@@ -2,14 +2,28 @@ use std::net::Ipv4Addr;
 
 use cloudflare_dyndns::cloudflare::GetRecordsResponse;
 use cloudflare_dyndns::config::{default_settings, Args};
-use cloudflare_dyndns::ip::IpAddress;
+use cloudflare_dyndns::ip::IpAddressChange;
 use cloudflare_dyndns::{create_reqwest_client, Settings};
 use color_eyre::Result;
 use reqwest::Client;
+use tracing::{debug, info, warn};
+use tracing_subscriber::prelude::*;
+use tracing_subscriber::{fmt, EnvFilter};
+
+const LOG_KEY: &str = "LOG";
 
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
+
+    if (std::env::var_os(LOG_KEY)).is_none() {
+        std::env::set_var(LOG_KEY, "info");
+    }
+
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(EnvFilter::from_env("LOG"))
+        .init();
 
     let args = Args::parse();
 
@@ -21,20 +35,21 @@ async fn main() -> Result<()> {
 
     let zone_id = settings.zone.get_zone_id(&client).await?;
 
-    let ip_address = IpAddress::new(addr, &settings)?;
+    let ip_address_change = IpAddressChange::new(addr, &settings)?;
 
-    println!("{ip_address}");
+    info!("{ip_address_change}");
 
-    if let Some(new_ip_address) = ip_address.get_new_ip_address(settings.force)
+    if let Some(new_ip_address) =
+        ip_address_change.get_new_ip_address(settings.force)
     {
         if settings.force {
-            println!("Running forced update...");
+            warn!("Running forced update...");
         }
 
         update_ip_address(&client, &settings, &zone_id, new_ip_address).await?;
     }
 
-    println!("Done.");
+    debug!("Done.");
 
     Ok(())
 }
@@ -47,28 +62,31 @@ async fn update_ip_address(
 ) -> Result<()> {
     let get_records_response = GetRecordsResponse::get(client, zone_id).await?;
 
-    println!("Retrieved DNS records.");
+    debug!("Retrieved DNS records.");
 
     let patch_record_bodies =
         get_records_response.create_patch_record_bodies(new_ip_address);
 
     for patch_record_body in patch_record_bodies {
-        if settings.preview {
-            print!("[Preview]: ");
-        } else {
+        if !settings.preview {
             patch_record_body.patch(client, zone_id).await?;
         }
 
-        println!("Updated '{}' record.", patch_record_body.name);
+        info!(
+            "{}Updated '{}' record.",
+            if settings.preview { "[Preview]: " } else { "" },
+            patch_record_body.name
+        );
     }
 
-    if settings.preview {
-        print!("[Preview]: ");
-    } else {
-        IpAddress::update_previous_ip_address(new_ip_address, settings)?;
+    if !settings.preview {
+        IpAddressChange::update_previous_ip_address(new_ip_address, settings)?;
     }
 
-    println!("Updated IP address in cache.");
+    info!(
+        "{}Updated IP address in cache.",
+        if settings.preview { "[Preview]: " } else { "" }
+    );
 
     Ok(())
 }

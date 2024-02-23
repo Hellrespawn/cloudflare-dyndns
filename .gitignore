@@ -5,4 +5,5 @@
 /.PKGBUILD/cloudflare-dyndns
 /.PKGBUILD/*.zst
 
-.env
+cloudflare-dyndns.conf
+*-previous_ip

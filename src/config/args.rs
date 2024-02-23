@@ -1,3 +1,4 @@
+use camino::Utf8PathBuf;
 use clap::Parser;
 
 /// Check public or user-supplied IP address and update A-records at your
@@ -22,6 +23,10 @@ pub struct Args {
     /// Don't update records, only show changes.
     #[arg(short, long, visible_short_alias = 'd', visible_alias = "dry_run")]
     pub preview: bool,
+
+    /// Config file
+    #[arg(short, long)]
+    pub config_file: Option<Utf8PathBuf>,
 }
 
 #[derive(Debug, clap::Args)]

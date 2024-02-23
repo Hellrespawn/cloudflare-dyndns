@@ -1,13 +1,11 @@
-use std::net::Ipv4Addr;
-
 use camino::Utf8PathBuf;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use reqwest::Client;
 
 use super::args::Args;
 use super::env::Env;
-use crate::cloudflare::ListZonesResponse;
+use super::ip::IpAddress;
+use super::zone::ZoneIdentifier;
 use crate::PKG_NAME;
 
 #[derive(Debug)]
@@ -21,84 +19,6 @@ pub struct Settings {
 
     pub force: bool,
     pub preview: bool,
-}
-
-#[derive(Debug)]
-pub enum IpAddress {
-    Address(Ipv4Addr),
-    Url(String),
-    Both { address: Ipv4Addr, url: String },
-}
-
-impl IpAddress {
-    pub fn new(
-        ip_address: Option<String>,
-        ip_url: Option<String>,
-    ) -> Result<Self> {
-        match (ip_address, ip_url) {
-            (None, None) => {
-                Err(eyre!("Neither IP address nor IP url are set."))
-            },
-            (Some(address), None) => Ok(IpAddress::Address(address.parse()?)),
-            (None, Some(url)) => Ok(IpAddress::Url(url)),
-            (Some(address), Some(url)) => {
-                Ok(IpAddress::Both { address: address.parse()?, url })
-            },
-        }
-    }
-
-    pub async fn ip_address(&self) -> Result<Ipv4Addr> {
-        match self {
-            IpAddress::Url(url) => {
-                let ip = reqwest::get(url).await?.text().await?;
-
-                Ok(ip.parse()?)
-            },
-            IpAddress::Both { address, .. } | IpAddress::Address(address) => {
-                Ok(*address)
-            },
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum ZoneIdentifier {
-    Id(String),
-    Name(String),
-    Both { id: String, name: String },
-}
-
-impl ZoneIdentifier {
-    pub fn new(id: Option<String>, name: Option<String>) -> Result<Self> {
-        match (id, name) {
-            (None, None) => {
-                Err(eyre!("Neither Cloudflare zone ID nor zone name are set."))
-            },
-            (Some(id), None) => Ok(ZoneIdentifier::Id(id)),
-            (None, Some(name)) => Ok(ZoneIdentifier::Name(name)),
-            (Some(id), Some(name)) => Ok(ZoneIdentifier::Both { id, name }),
-        }
-    }
-
-    pub async fn get_zone_id(&self, client: &Client) -> Result<String> {
-        match self {
-            ZoneIdentifier::Id(id) | ZoneIdentifier::Both { id, .. } => {
-                Ok(id.clone())
-            },
-            ZoneIdentifier::Name(name) => {
-                let list_zones_response =
-                    ListZonesResponse::get(client).await?;
-
-                let zone_response = list_zones_response
-                    .find_by_name(name)
-                    .ok_or(eyre!("Unable to find zone with name '{}'", name))?;
-
-                println!("Updating zone '{}'", name);
-
-                Ok(zone_response.id().to_owned())
-            },
-        }
-    }
 }
 
 #[allow(clippy::too_many_arguments)]

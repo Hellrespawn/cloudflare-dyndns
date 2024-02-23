@@ -24,7 +24,32 @@ pub struct Settings {
 
 #[allow(clippy::too_many_arguments)]
 impl Settings {
-    pub fn new(
+    pub fn default_from_args(args: Args) -> Result<Self> {
+        let env = if let Some(config_file) = &args.config_file {
+            let env = Env::from_file(config_file)?.ok_or(eyre!(
+                "Unable to read config from file: {}",
+                config_file
+            ))?;
+
+            Some(env)
+        } else {
+            Env::from_file(&Self::default_config_dir()?)?
+        };
+
+        let settings = if let Some(env) = env {
+            Settings::from_args_and_env(args, env)
+        } else {
+            Settings::from_args(args, Self::default_config_dir()?)
+        }?;
+
+        Ok(settings)
+    }
+
+    pub fn previous_ip_file(&self) -> Utf8PathBuf {
+        self.config_dir().join(format!("{PKG_NAME}-previous_ip"))
+    }
+
+    fn new(
         token: String,
         ip_address: Option<String>,
         ip_url: Option<String>,
@@ -38,27 +63,6 @@ impl Settings {
         let zone = ZoneIdentifier::new(zone_id, zone_name)?;
 
         Ok(Self { ip, token, zone, config_dir, force, preview })
-    }
-
-    pub fn default_from_args(args: Args) -> Result<Self> {
-        let env = if let Some(config_file) = &args.config_file {
-            let env = Env::from_file(config_file)?.ok_or(eyre!(
-                "Unable to read config from file: {}",
-                config_file
-            ))?;
-
-            Some(env)
-        } else {
-            None
-        };
-
-        let settings = if let Some(env) = env {
-            Settings::from_args_and_env(args, env)
-        } else {
-            Settings::from_args(args, Self::default_config_dir()?)
-        }?;
-
-        Ok(settings)
     }
 
     fn from_args_and_env(args: Args, env: Env) -> Result<Self> {
@@ -109,14 +113,9 @@ impl Settings {
         )
     }
 
-    pub fn config_dir(&self) -> &Utf8Path {
+    fn config_dir(&self) -> &Utf8Path {
         &self.config_dir
     }
-
-    pub fn previous_ip_file(&self) -> Utf8PathBuf {
-        self.config_dir().join(format!("{PKG_NAME}-previous_ip"))
-    }
-
     fn default_config_dir() -> Result<Utf8PathBuf> {
         let mut config_dir: Utf8PathBuf = dirs::config_dir()
             .ok_or(eyre!(

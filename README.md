@@ -8,19 +8,6 @@ Requires Rust.
 
 ## Installation
 
-### Arch Linux
-
-Run `makepkg` in the `PKGBUILD`-folder to create and install a package.
-
-```sh
-makepkg \
-  --install \
-  --syncdeps \  # Also install dependencies
-  --rmdeps      # Remove dependencies after install
-```
-
-### Manual installation
-
 Run `cargo install` to install it to your personal `cargo` bin. Make sure it's on your `$PATH`.
 
 If using systemd, copy `service` to `/etc/systemd/cloudflare-dyndns.service` and `timer` to `/etc/systemd/cloudflare-dyndns.timer`.
@@ -76,7 +63,7 @@ Consider using the systemd service or adding an entry to your `crontab`.
 You can add `cloudflare-dyndns` to your crontab.
 
 ```crontab
-"*/15 * * * *  /usr/bin/cloudflare-dyndns >> /var/log/cloudflare-dyndns.log 2>&1"
+"*/15 * * * *  /opt/cloudflare-dyndns >> /var/log/cloudflare-dyndns.log 2>&1"
 ```
 
 This will run every 15 minutes, logging the output to a file.
@@ -84,7 +71,7 @@ This will run every 15 minutes, logging the output to a file.
 Use the following command or similar to add it to your crontab.
 
 ```sh
-printf "%s\n%s\n" "$(crontab -l)" "*/15 * * * *  /usr/bin/cloudflare-dyndns >> /var/log/cloudflare-dyndns.log 2>&1" | crontab -
+printf "%s\n%s\n" "$(crontab -l)" "*/15 * * * *  /opt/cloudflare-dyndns >> /var/log/cloudflare-dyndns.log 2>&1" | crontab -
 ```
 
 ### systemd

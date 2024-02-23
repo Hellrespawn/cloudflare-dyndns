@@ -3,5 +3,5 @@ Description=Update CloudFlare DNS
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/cloudflare-dyndns
+ExecStart=/opt/cloudflare-dyndns/cloudflare-dyndns
 

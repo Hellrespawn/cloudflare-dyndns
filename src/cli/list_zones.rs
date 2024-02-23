@@ -53,6 +53,7 @@ pub struct Args {
 }
 
 impl Args {
+    #[must_use]
     pub fn parse() -> Args {
         <Args as Parser>::parse()
     }

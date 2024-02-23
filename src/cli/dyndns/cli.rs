@@ -22,7 +22,7 @@ pub async fn main() -> Result<()> {
     let zone_id = settings.zone.get_zone_id(&client).await?;
 
     let ip_address_change =
-        IpAddressChange::new(addr, &settings.get_previous_ip_file())?;
+        IpAddressChange::new(addr, &settings.previous_ip_file())?;
 
     info!("{ip_address_change}");
 
@@ -69,7 +69,7 @@ async fn update_ip_address(
     if !settings.preview {
         IpAddressChange::write_new_ip_address_to_file(
             new_ip_address,
-            &settings.get_previous_ip_file(),
+            &settings.previous_ip_file(),
         )?;
     }
 

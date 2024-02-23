@@ -36,10 +36,12 @@ impl ListZonesResponse {
         }
     }
 
+    #[must_use]
     pub fn find_by_name(&self, name: &str) -> Option<&ZoneResponse> {
         self.result.iter().find(|z| z.name == name)
     }
 
+    #[must_use]
     pub fn zones(&self) -> &[ZoneResponse] {
         &self.result
     }
@@ -52,10 +54,12 @@ pub struct ZoneResponse {
 }
 
 impl ZoneResponse {
+    #[must_use]
     pub fn id(&self) -> &str {
         self.id.as_str()
     }
 
+    #[must_use]
     pub fn name(&self) -> &str {
         self.name.as_str()
     }
@@ -93,6 +97,7 @@ impl GetRecordsResponse {
         }
     }
 
+    #[must_use]
     pub fn create_patch_record_bodies(
         &self,
         ip_address: Ipv4Addr,

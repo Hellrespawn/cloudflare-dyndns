@@ -4,6 +4,7 @@ use camino::Utf8Path;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use fs_err as fs;
+use tracing::trace;
 
 pub enum IpAddressChange {
     FirstRun(Ipv4Addr),
@@ -22,6 +23,7 @@ impl IpAddressChange {
         Ok(Self::determine_variant(new_ip_address, previous_ip_address))
     }
 
+    #[must_use]
     pub fn get_new_ip_address(&self, force: bool) -> Option<Ipv4Addr> {
         match self {
             IpAddressChange::Changed { new_ip_address, .. }
@@ -42,17 +44,21 @@ impl IpAddressChange {
         ip_address: Ipv4Addr,
         previous_ip_file: &Utf8Path,
     ) -> Result<()> {
-        let ip_str = ip_address.to_string();
+        let ip_str = format!("{}\n", ip_address);
 
         let result = fs::create_dir_all(
             previous_ip_file
                 .parent()
                 .expect("Path to file should have parent."),
         )
-        .and_then(|()| fs::write(previous_ip_file, ip_str));
+        .and_then(|()| fs::write(previous_ip_file, &ip_str));
+
+        trace!("Wrote '{}' to '{}", ip_str, previous_ip_file);
 
         if let Err(err) = result {
-            Err(eyre!("Unable to update IP address: '{ip_address}'\nError: {err}"))
+            Err(eyre!(
+                "Unable to update IP address: '{ip_address}'\nError: {err}"
+            ))
         } else {
             Ok(())
         }
@@ -77,7 +83,7 @@ impl IpAddressChange {
         previous_ip_file: &Utf8Path,
     ) -> Result<Option<Ipv4Addr>> {
         crate::fs::read_file_optional(previous_ip_file)
-            .map(|s| Ok(s.parse()?))
+            .map(|s| Ok(s.trim().parse()?))
             .transpose()
     }
 }
@@ -85,7 +91,7 @@ impl IpAddressChange {
 impl std::fmt::Display for IpAddressChange {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            IpAddressChange::FirstRun(new_ip_address) => write!(f, "IP address: '{new_ip_address}'"),
+            IpAddressChange::FirstRun(new_ip_address) => write!(f, "IP address on first run: '{new_ip_address}'"),
             IpAddressChange::Unchanged(previous_ip_address) => write!(f, "IP address unchanged: '{previous_ip_address}'"),
             IpAddressChange::Changed { new_ip_address, previous_ip_address } => write!(f,
                 "IP address updated: '{previous_ip_address}' => '{new_ip_address}'"

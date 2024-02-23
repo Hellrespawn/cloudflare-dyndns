@@ -16,7 +16,7 @@ Run `makepkg` in the `PKGBUILD`-folder to create and install a package.
 makepkg \
   --install \
   --syncdeps \  # Also install dependencies
-  --rmdeps  # Remove dependencies after install
+  --rmdeps      # Remove dependencies after install
 ```
 
 ### Manual installation
@@ -39,6 +39,9 @@ CLOUDFLARE_TOKEN=<API token>
 CLOUDFLARE_ZONE_ID=<Zone ID>
 # Or
 CLOUDFLARE_ZONE_NAME=<Zone name>
+
+# URL that returns the public IP address in plaintext
+IP_URL=https://site.tld
 ```
 
 ## Usage
@@ -49,10 +52,15 @@ Dynamic DNS for CloudFlare.
 Usage: cloudflare-dyndns [OPTIONS]
 
 Options:
-  -i, --ip-address <IP_ADDRESS>  User-supplied IP address
-  -p, --preview                  Don't update records, only show changes [aliases: dry_run] [short aliases: d]
-  -h, --help                     Print help
-  -V, --version                  Print version
+  -t, --token <TOKEN>              CLoudflare DNS:Edit token
+      --ip <ADDRESS>               User-supplied IP address
+      --url <URL>                  User-supplied URL to query public IP-address
+      --id <ID>                    Cloudflare zone ID
+      --name <NAME>                Cloudflare zone name
+  -p, --preview                    Don't update records, only show changes [aliases: dry_run] [short aliases: d]
+  -c, --config-file <CONFIG_FILE>  Custom configuration file
+  -h, --help                       Print help
+  -V, --version                    Print version
 ```
 
 ### Manual usage

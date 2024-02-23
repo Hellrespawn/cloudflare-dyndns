@@ -36,15 +36,4 @@ impl Env {
             Ok(None)
         }
     }
-
-    #[must_use]
-    pub fn merge(mut self, other: Self) -> Self {
-        self.ip_address = other.ip_address.or(self.ip_address);
-        self.ip_url = other.ip_url.or(self.ip_url);
-        self.token = other.token.or(self.token);
-        self.zone_id = other.zone_id.or(self.zone_id);
-        self.zone_name = other.zone_name.or(self.zone_name);
-
-        self
-    }
 }

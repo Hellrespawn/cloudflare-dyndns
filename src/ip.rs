@@ -1,10 +1,9 @@
 use std::net::Ipv4Addr;
 
+use camino::Utf8Path;
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use fs_err as fs;
-
-use crate::{read_file_optional, Settings};
 
 pub enum IpAddressChange {
     FirstRun(Ipv4Addr),
@@ -15,9 +14,10 @@ pub enum IpAddressChange {
 impl IpAddressChange {
     pub fn new(
         new_ip_address: Ipv4Addr,
-        settings: &Settings,
+        previous_ip_file: &Utf8Path,
     ) -> Result<IpAddressChange> {
-        let previous_ip_address = Self::get_previous_ip_address(settings)?;
+        let previous_ip_address =
+            Self::get_previous_ip_address(previous_ip_file)?;
 
         Ok(Self::determine_variant(new_ip_address, previous_ip_address))
     }
@@ -38,17 +38,21 @@ impl IpAddressChange {
         }
     }
 
-    pub fn update_previous_ip_address(
+    pub fn write_new_ip_address_to_file(
         ip_address: Ipv4Addr,
-        settings: &Settings,
+        previous_ip_file: &Utf8Path,
     ) -> Result<()> {
         let ip_str = ip_address.to_string();
 
-        let result = fs::create_dir_all(settings.get_config_dir())
-            .and_then(|()| fs::write(settings.get_previous_ip_file(), ip_str));
+        let result = fs::create_dir_all(
+            previous_ip_file
+                .parent()
+                .expect("Path to file should have parent."),
+        )
+        .and_then(|()| fs::write(previous_ip_file, ip_str));
 
         if let Err(err) = result {
-            Err(eyre!("Unable to update previous IP address: '{ip_address}'\nError: {err}"))
+            Err(eyre!("Unable to update IP address: '{ip_address}'\nError: {err}"))
         } else {
             Ok(())
         }
@@ -70,9 +74,9 @@ impl IpAddressChange {
     }
 
     fn get_previous_ip_address(
-        settings: &Settings,
+        previous_ip_file: &Utf8Path,
     ) -> Result<Option<Ipv4Addr>> {
-        read_file_optional(&settings.get_previous_ip_file())
+        crate::fs::read_file_optional(previous_ip_file)
             .map(|s| Ok(s.parse()?))
             .transpose()
     }

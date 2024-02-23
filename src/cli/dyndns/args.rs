@@ -24,7 +24,7 @@ pub struct Args {
     #[arg(short, long, visible_short_alias = 'd', visible_alias = "dry_run")]
     pub preview: bool,
 
-    /// Config file
+    /// Custom configuration file.
     #[arg(short, long)]
     pub config_file: Option<Utf8PathBuf>,
 }
@@ -48,7 +48,7 @@ pub struct CloudflareZone {
     #[arg(long)]
     pub id: Option<String>,
 
-    /// CLoudlfare zone name
+    /// Cloudflare zone name
     #[arg(long)]
     pub name: Option<String>,
 }

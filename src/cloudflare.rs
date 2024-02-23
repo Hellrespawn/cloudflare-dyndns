@@ -39,6 +39,10 @@ impl ListZonesResponse {
     pub fn find_by_name(&self, name: &str) -> Option<&ZoneResponse> {
         self.result.iter().find(|z| z.name == name)
     }
+
+    pub fn zones(&self) -> &[ZoneResponse] {
+        &self.result
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -50,6 +54,10 @@ pub struct ZoneResponse {
 impl ZoneResponse {
     pub fn id(&self) -> &str {
         self.id.as_str()
+    }
+
+    pub fn name(&self) -> &str {
+        self.name.as_str()
     }
 }
 

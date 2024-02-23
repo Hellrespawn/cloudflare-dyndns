@@ -3,9 +3,10 @@ use color_eyre::eyre::eyre;
 use color_eyre::Result;
 
 use super::args::Args;
-use super::env::Env;
-use super::ip::IpAddress;
-use super::zone::ZoneIdentifier;
+use super::paths::CONFIG_PATHS;
+use crate::config::env::Env;
+use crate::config::ip::IpAddress;
+use crate::config::zone::ZoneIdentifier;
 use crate::PKG_NAME;
 
 #[derive(Debug)]
@@ -37,6 +38,37 @@ impl Settings {
         let zone = ZoneIdentifier::new(zone_id, zone_name)?;
 
         Ok(Self { ip, token, zone, path, force, preview })
+    }
+
+    pub fn default_from_args(args: Args) -> Result<Self> {
+        let env = if let Some(config_file) = &args.config_file {
+            let env = Env::from_file(config_file)?.ok_or(eyre!(
+                "Unable to read config from file: {}",
+                config_file
+            ))?;
+
+            Some(env)
+        } else {
+            let system_env = Env::from_file(&CONFIG_PATHS.system_config())?;
+
+            let user_env = Env::from_file(&CONFIG_PATHS.user_config())?;
+
+            match (system_env, user_env) {
+                (None, None) => None,
+                (None, Some(env)) | (Some(env), None) => Some(env),
+                (Some(system_env), Some(user_env)) => {
+                    Some(system_env.merge(user_env))
+                },
+            }
+        };
+
+        let settings = if let Some(env) = env {
+            Settings::from_args_and_env(args, env)
+        } else {
+            Settings::from_args(args, CONFIG_PATHS.user_config())
+        }?;
+
+        Ok(settings)
     }
 
     pub fn from_args_and_env(args: Args, env: Env) -> Result<Self> {

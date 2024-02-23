@@ -8,43 +8,31 @@
 #![allow(unknown_lints)] // For nightly lints
 #![allow(clippy::uninlined_format_args)]
 
+pub mod cli;
 pub mod cloudflare;
 pub mod config;
+pub mod fs;
 pub mod ip;
+pub mod network;
 
-use camino::Utf8Path;
-pub use config::Settings;
-use fs_err as fs;
-
-pub fn read_file_optional(path: &Utf8Path) -> Option<String> {
-    fs::read_to_string(path).ok().map(|s| s.trim().to_owned())
-}
-
-use color_eyre::eyre::eyre;
-use color_eyre::Result;
-use reqwest::header::HeaderMap;
-use reqwest::Client;
+use tracing_subscriber::prelude::*;
+use tracing_subscriber::{fmt, EnvFilter};
 
 pub const PKG_NAME: &str = env!("CARGO_PKG_NAME");
+const LOG_KEY: &str = "LOG";
 
-/// Create client with Content-Type and Authorization headers.
-pub fn create_reqwest_client(token: &str) -> Result<Client> {
-    let mut headers = HeaderMap::new();
+/// Install `color_eyre` and enable tracing. Defaults to `Level::INFO`.
+pub fn init() -> color_eyre::Result<()> {
+    color_eyre::install()?;
 
-    headers.insert(
-        "Content-Type",
-        "application/json"
-            .parse()
-            .map_err(|_| eyre!("Invalid 'Content-Type' header."))?,
-    );
-    headers.insert(
-        "Authorization",
-        format!("Bearer {}", token)
-            .parse()
-            .map_err(|_| eyre!("Invalid 'Authorization' header."))?,
-    );
+    if (std::env::var_os(LOG_KEY)).is_none() {
+        std::env::set_var(LOG_KEY, "info");
+    }
 
-    let client = Client::builder().default_headers(headers).build()?;
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(EnvFilter::from_env("LOG"))
+        .init();
 
-    Ok(client)
+    Ok(())
 }

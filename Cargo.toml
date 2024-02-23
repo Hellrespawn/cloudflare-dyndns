@@ -4,7 +4,7 @@ edition = "2021"
 license = "BSD 3-Clause"
 name = "cloudflare-dyndns"
 repository = "https://github.com/Hellrespawn/cloudflare-dyndns"
-version = "0.6.0"
+version = "0.7.0"
 default-run = "cloudflare-dyndns"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

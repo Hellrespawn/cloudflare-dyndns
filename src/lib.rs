@@ -27,12 +27,10 @@ pub fn init() -> color_eyre::Result<()> {
     color_eyre::install()?;
 
     if (std::env::var(LOG_KEY)).is_err() {
-        std::env::set_var(LOG_KEY, format!("none,{CRATE_NAME}=info"));
+        std::env::set_var(LOG_KEY, format!("{CRATE_NAME}=info"));
     } else {
         let env_var =
-            format!("none,{CRATE_NAME}={}", std::env::var(LOG_KEY).unwrap());
-
-        dbg!(&env_var);
+            format!("{CRATE_NAME}={}", std::env::var(LOG_KEY).unwrap());
 
         std::env::set_var(LOG_KEY, env_var);
     }

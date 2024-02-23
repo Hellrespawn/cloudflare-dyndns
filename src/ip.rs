@@ -53,7 +53,7 @@ impl IpAddressChange {
         )
         .and_then(|()| fs::write(previous_ip_file, &ip_str));
 
-        trace!("Wrote '{}' to '{}", ip_str, previous_ip_file);
+        trace!("Wrote '{}' to '{}", ip_address, previous_ip_file);
 
         if let Err(err) = result {
             Err(eyre!(

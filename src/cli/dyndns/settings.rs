@@ -33,7 +33,7 @@ impl Settings {
 
             Some(env)
         } else {
-            Env::from_file(&Self::default_config_dir()?)?
+            Env::from_file(&Self::default_config_file()?)?
         };
 
         let settings = if let Some(env) = env {
@@ -116,6 +116,7 @@ impl Settings {
     fn config_dir(&self) -> &Utf8Path {
         &self.config_dir
     }
+
     fn default_config_dir() -> Result<Utf8PathBuf> {
         let mut config_dir: Utf8PathBuf = dirs::config_dir()
             .ok_or(eyre!(
@@ -129,5 +130,9 @@ impl Settings {
         }
 
         Ok(config_dir)
+    }
+
+    fn default_config_file() -> Result<Utf8PathBuf> {
+        Ok(Self::default_config_dir()?.join(format!("{PKG_NAME}.conf")))
     }
 }

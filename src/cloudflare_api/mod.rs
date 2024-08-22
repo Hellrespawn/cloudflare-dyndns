@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use tabled::Tabled;
 
 pub mod endpoints;
 
@@ -27,7 +28,7 @@ pub struct GetRecordsResponse {
     pub result: Vec<DNSRecordResponse>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Tabled)]
 pub struct DNSRecordResponse {
     pub id: String,
     pub name: String,

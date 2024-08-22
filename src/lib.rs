@@ -12,27 +12,46 @@ pub mod cloudflare_api;
 pub mod config;
 pub mod public_ip;
 
+use std::str::FromStr;
+
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use reqwest::header::HeaderMap;
 use reqwest::Client;
+use tracing::level_filters::LevelFilter;
+use tracing::Level;
+use tracing_subscriber::filter::FilterFn;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::{fmt, EnvFilter};
 
 pub const PKG_NAME: &str = env!("CARGO_PKG_NAME");
+const CRATE_NAME: &str = env!("CARGO_CRATE_NAME");
 
-const LOG_KEY: &str = "LOG";
+const LOG_KEY: &str = "CFDD_LOG";
 
 /// Install `color_eyre` and enable tracing. Defaults to `Level::INFO`.
 pub fn init() -> color_eyre::Result<()> {
     color_eyre::install()?;
 
-    let filter = EnvFilter::builder().with_env_var(LOG_KEY).from_env()?;
+    let var = std::env::var_os(LOG_KEY).map(|os| {
+        os.into_string().expect("Environment variable is not UTF-8!")
+    });
 
-    tracing_subscriber::registry()
-        .with(fmt::layer().compact())
-        .with(filter)
-        .init();
+    let level_filter =
+        var.map_or(Ok(LevelFilter::OFF), |l| LevelFilter::from_str(&l))?;
+
+    let user_layer = fmt::layer()
+        .compact()
+        .without_time()
+        .with_target(false)
+        .with_level(false)
+        .with_filter(level_filter)
+        .with_filter(FilterFn::new(|m| m.target().starts_with(CRATE_NAME)));
+
+    let dev_layer =
+        fmt::layer().compact().with_filter(EnvFilter::from_env(LOG_KEY));
+
+    tracing_subscriber::registry().with(user_layer).with(dev_layer).init();
 
     Ok(())
 }

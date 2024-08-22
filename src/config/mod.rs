@@ -1,9 +1,12 @@
-use camino::Utf8PathBuf;
+use std::str::FromStr;
+
+use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use indexmap::IndexMap;
 use nix::unistd::geteuid;
 use serde::Deserialize;
+use tracing::{debug, trace};
 
 use crate::PKG_NAME;
 
@@ -15,6 +18,9 @@ pub struct Config {
 
     #[serde(flatten)]
     zones: IndexMap<String, ZoneConfig>,
+
+    #[serde(skip)]
+    cache_file: Utf8PathBuf,
 }
 
 impl Config {
@@ -28,6 +34,16 @@ impl Config {
         &self.cloudflare_token
     }
 
+    #[must_use]
+    pub fn zones(&self) -> &IndexMap<String, ZoneConfig> {
+        &self.zones
+    }
+
+    #[must_use]
+    pub fn cache_file(&self) -> &Utf8Path {
+        self.cache_file.as_ref()
+    }
+
     pub fn load_config() -> Result<Config> {
         let default_config_file = Self::default_config_file()?;
 
@@ -37,7 +53,11 @@ impl Config {
         for config_path in &config_paths {
             if config_path.is_file() {
                 let contents = fs_err::read_to_string(config_path)?;
-                let config = toml::from_str(&contents)?;
+                let mut config: Config = toml::from_str(&contents)?;
+
+                config.cache_file = config_path.with_extension("cache");
+
+                debug!("Loaded configuration from {config_path}");
 
                 return Ok(config);
             }
@@ -55,13 +75,14 @@ impl Config {
 
         #[cfg(unix)]
         if geteuid().is_root() {
+            trace!("Running as root on unix, using /etc/ instead of $HOME.");
             config_dir = Utf8PathBuf::from(format!("/etc/{PKG_NAME}"));
         }
 
         Ok(config_dir)
     }
 
-    pub fn default_config_file() -> Result<Utf8PathBuf> {
+    fn default_config_file() -> Result<Utf8PathBuf> {
         Ok(Self::default_config_dir()?.join(format!("{PKG_NAME}.conf")))
     }
 }
@@ -69,6 +90,13 @@ impl Config {
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 pub struct ZoneConfig {
     records: Vec<RecordConfig>,
+}
+
+impl ZoneConfig {
+    #[must_use]
+    pub fn records(&self) -> &[RecordConfig] {
+        &self.records
+    }
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
@@ -82,13 +110,57 @@ pub enum RecordConfig {
     Name(String),
 }
 
-#[derive(Deserialize, Debug, PartialEq, Eq, Default)]
+impl RecordConfig {
+    #[must_use]
+    pub fn name(&self) -> &str {
+        match self {
+            RecordConfig::Full { name, .. } | RecordConfig::Name(name) => name,
+        }
+    }
+
+    #[must_use]
+    pub fn record_type(&self) -> DNSRecordType {
+        match self {
+            RecordConfig::Full { record_type, .. } => *record_type,
+            RecordConfig::Name(_) => DNSRecordType::A,
+        }
+    }
+
+    #[must_use]
+    pub fn is_match(&self, name: &str, record_type: &str) -> bool {
+        let record_type = DNSRecordType::from_str(record_type);
+
+        if let Ok(record_type) = record_type {
+            name == self.name() && record_type == self.record_type()
+        } else {
+            false
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, PartialEq, Eq, Default, Copy, Clone)]
 pub enum DNSRecordType {
     #[default]
     A,
     AAAA,
     MX,
     TXT,
+}
+
+impl FromStr for DNSRecordType {
+    type Err = color_eyre::Report;
+
+    fn from_str(s: &str) -> Result<Self> {
+        let record_type = match s.to_lowercase().as_str() {
+            "a" => Self::A,
+            "aaaa" => Self::AAAA,
+            "mx" => Self::MX,
+            "txt" => Self::TXT,
+            other => return Err(eyre!("Unknown DNS record type '{other}'")),
+        };
+
+        Ok(record_type)
+    }
 }
 
 #[cfg(test)]
@@ -102,38 +174,45 @@ mod test {
     fn get_default_config() -> Config {
         let mut zones = IndexMap::new();
 
-        zones.insert("example.nl".to_owned(), ZoneConfig {
-            records: vec![
-                RecordConfig::Full {
-                    record_type: DNSRecordType::A,
-                    name: "www".to_owned(),
-                },
-                RecordConfig::Full {
-                    record_type: DNSRecordType::A,
-                    name: "mail".to_owned(),
-                },
-                RecordConfig::Name("test".to_owned()),
-            ],
-        });
+        zones.insert(
+            "example.nl".to_owned(),
+            ZoneConfig {
+                records: vec![
+                    RecordConfig::Full {
+                        record_type: DNSRecordType::A,
+                        name: "www".to_owned(),
+                    },
+                    RecordConfig::Full {
+                        record_type: DNSRecordType::A,
+                        name: "mail".to_owned(),
+                    },
+                    RecordConfig::Name("test".to_owned()),
+                ],
+            },
+        );
 
-        zones.insert("otherexample.com".to_owned(), ZoneConfig {
-            records: vec![
-                RecordConfig::Full {
-                    record_type: DNSRecordType::A,
-                    name: "www".to_owned(),
-                },
-                RecordConfig::Full {
-                    record_type: DNSRecordType::A,
-                    name: "mail".to_owned(),
-                },
-                RecordConfig::Name("test".to_owned()),
-            ],
-        });
+        zones.insert(
+            "otherexample.com".to_owned(),
+            ZoneConfig {
+                records: vec![
+                    RecordConfig::Full {
+                        record_type: DNSRecordType::A,
+                        name: "www".to_owned(),
+                    },
+                    RecordConfig::Full {
+                        record_type: DNSRecordType::A,
+                        name: "mail".to_owned(),
+                    },
+                    RecordConfig::Name("test".to_owned()),
+                ],
+            },
+        );
 
         Config {
             public_ip_url: "https://example.ip".to_owned(),
             cloudflare_token: "12345AB".to_owned(),
             zones,
+            cache_file: Utf8PathBuf::new(),
         }
     }
 

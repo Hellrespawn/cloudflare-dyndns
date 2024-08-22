@@ -1,6 +1,4 @@
 #[tokio::main]
 async fn main() -> color_eyre::Result<()> {
-    println!("Hello, world!");
-
-    Ok(())
+    cloudflare_dyndns::cli::dyndns::main().await
 }

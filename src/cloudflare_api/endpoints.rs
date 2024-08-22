@@ -41,7 +41,7 @@ pub async fn get_records(
         Err(transform_error_responses(&response.errors))
     }
 }
-pub async fn patch_records(
+pub async fn patch_record(
     client: &Client,
     zone_id: &str,
     record_id: &str,

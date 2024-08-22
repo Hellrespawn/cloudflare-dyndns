@@ -1,53 +1,18 @@
-use camino::Utf8PathBuf;
-use clap::Parser;
 use color_eyre::Result;
-use tracing::{debug, info, warn};
 
-use crate::config::env::Env;
-use crate::config::ip::IpAddress;
+use crate::config::Config;
+use crate::public_ip::get_public_ip_address;
 
 pub async fn main() -> Result<()> {
     crate::init()?;
 
-    let args = Args::parse();
+    let config = Config::load_config()?;
 
-    let env = if let Some(path) = &args.config_file {
-        Env::from_file(path)?
-    } else {
-        None
-    };
+    let ip_url = config.public_ip_url();
 
-    let url = args.url.or_else(|| env.map(|e| e.ip_url)?);
+    let public_ip = get_public_ip_address(ip_url).await?;
 
-    if let Some(url) = url {
-        debug!("Querying: {}", url);
-
-        let address = IpAddress::Url(url).ip_address().await?;
-
-        info!("Public IP address: {}", address);
-    } else {
-        warn!("URL not provided!");
-    }
+    println!("Your public IP address is {public_ip}");
 
     Ok(())
-}
-
-/// Check public or user-supplied IP address.
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-pub struct Args {
-    /// User-supplied URL to query public IP-address
-    #[arg(long)]
-    pub url: Option<String>,
-
-    /// Custom configuration file.
-    #[arg(short, long)]
-    pub config_file: Option<Utf8PathBuf>,
-}
-
-impl Args {
-    #[must_use]
-    pub fn parse() -> Args {
-        <Args as Parser>::parse()
-    }
 }

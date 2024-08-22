@@ -5,5 +5,4 @@
 /.PKGBUILD/cloudflare-dyndns
 /.PKGBUILD/*.zst
 
-cloudflare-dyndns.conf
-*-previous_ip
+config.toml

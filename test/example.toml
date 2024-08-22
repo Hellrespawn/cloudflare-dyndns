@@ -1,0 +1,16 @@
+public_ip_url = "https://example.ip"
+cloudflare_token = "12345AB"
+
+["example.nl"]
+records = [
+    { type = "A", name="www"},
+    { name = "mail"},
+    "test"
+]
+
+["otherexample.com"]
+records = [
+    { type = "A", name="www"},
+    { name = "mail"},
+    "test"
+]

@@ -12,23 +12,24 @@ Run `cargo install` to install it to your personal `cargo` bin. Make sure it's o
 
 If using systemd, copy `service` to `/etc/systemd/cloudflare-dyndns.service` and `timer` to `/etc/systemd/cloudflare-dyndns.timer`.
 
+Alternatively, use the `install.sh`-script.
+
 ## Configuration
 
-The script tries to read `/etc/cloudflare-dyndns/cloudflare-dyndns.conf` when running as root or `$HOME/.config/cloudflare-dyndns.conf` when running as user.
+The script tries to read `/etc/cloudflare-dyndns/cloudflare-dyndns.toml` when running as root or `$HOME/.config/cloudflare-dyndns.toml` when running as user.
 
 The expected format is:
 
-```sh
-# Requires DNS:Edit on the specified zones, or on all zones if you wish to query by name.
-CLOUDFLARE_TOKEN=<API token>
+```toml
+public_ip_url = "https://example.ip"
+cloudflare_token = ""
 
-# Either
-CLOUDFLARE_ZONE_ID=<Zone ID>
-# Or
-CLOUDFLARE_ZONE_NAME=<Zone name>
+["example.com"]  # Zone name or id
+records = ["example.com", "*", "ftp"]  # A-record names.
 
-# URL that returns the public IP address in plaintext
-IP_URL=https://site.tld
+["example.nl"]
+records = ["example.nl", "*", "mail"]
+
 ```
 
 ## Usage
@@ -39,15 +40,11 @@ Dynamic DNS for CloudFlare.
 Usage: cloudflare-dyndns [OPTIONS]
 
 Options:
-  -t, --token <TOKEN>              CLoudflare DNS:Edit token
-      --ip <ADDRESS>               User-supplied IP address
-      --url <URL>                  User-supplied URL to query public IP-address
-      --id <ID>                    Cloudflare zone ID
-      --name <NAME>                Cloudflare zone name
-  -p, --preview                    Don't update records, only show changes [aliases: dry_run] [short aliases: d]
-  -c, --config-file <CONFIG_FILE>  Custom configuration file
-  -h, --help                       Print help
-  -V, --version                    Print version
+      --ip <ADDRESS>               User-supplied IP address  # TODO
+  -p, --preview                    Don't update records, only show changes [aliases: dry_run] [short aliases: d]  # TODO
+  -c, --config-file <CONFIG_FILE>  Custom configuration file  # TODO
+  -h, --help                       Print help  # TODO
+  -V, --version                    Print version  # TODO
 ```
 
 ### Manual usage

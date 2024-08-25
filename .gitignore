@@ -1,9 +1,4 @@
 /target
 
-/.PKGBUILD/pkg
-/.PKGBUILD/src
-/.PKGBUILD/cloudflare-dyndns
-/.PKGBUILD/*.zst
-
-config.toml
-config.cache
+cloudflare-dyndns.toml
+cloudflare-dyndns.cache

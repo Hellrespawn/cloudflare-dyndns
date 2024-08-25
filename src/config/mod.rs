@@ -99,9 +99,7 @@ impl ZoneConfig {
 
     #[must_use]
     pub fn is_record_selected(&self, record: &DNSRecord) -> bool {
-        self.records.iter().any(|r| {
-            r.name() == record.name && r.record_type() == record.record_type
-        })
+        self.records.iter().any(|r| r.match_record(record))
     }
 }
 
@@ -117,6 +115,18 @@ pub enum RecordConfig {
 }
 
 impl RecordConfig {
+    fn match_record(&self, record: &DNSRecord) -> bool {
+        let record_name = &record.name;
+        let self_name = self.name();
+
+        let name_matches = self_name == record_name
+            || record_name.starts_with(&format!("{}.", self_name));
+
+        let type_matches = self.record_type() == record.record_type;
+
+        type_matches && name_matches
+    }
+
     #[must_use]
     pub fn name(&self) -> &str {
         match self {

@@ -1,0 +1,8 @@
+public_ip_url = "https://example.ip"
+cloudflare_token = ""
+
+["example.com"]
+records = ["example.com", "*", "ftp"]
+
+["example.nl"]
+records = ["example.nl", "*", "mail"]

@@ -1,49 +1,21 @@
-use serde::{Deserialize, Serialize};
-use tabled::Tabled;
+use color_eyre::eyre::{eyre, Error};
+use serde::Deserialize;
 
-pub mod endpoints;
+pub mod record;
+pub mod zone;
+
+const API_URL: &str = "https://api.cloudflare.com/client/v4";
+
+fn transform_error_responses(errors: &[CloudFlareError]) -> Error {
+    eyre!(errors
+        .iter()
+        .map(|e| format!("{}: {}", e.code, e.message))
+        .collect::<Vec<_>>()
+        .join("\n"))
+}
 
 #[derive(Deserialize, Debug)]
-pub struct CloudFlareError {
+struct CloudFlareError {
     pub code: isize,
     pub message: String,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct ListZonesResponse {
-    pub success: bool,
-    pub errors: Vec<CloudFlareError>,
-    pub result: Vec<ZoneResponse>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct ZoneResponse {
-    pub name: String,
-    pub id: String,
-}
-#[derive(Deserialize, Debug)]
-pub struct GetRecordsResponse {
-    pub success: bool,
-    pub errors: Vec<CloudFlareError>,
-    pub result: Vec<DNSRecordResponse>,
-}
-
-#[derive(Deserialize, Serialize, Debug, Tabled)]
-pub struct DNSRecordResponse {
-    pub id: String,
-    pub name: String,
-    #[serde(rename = "type")]
-    pub record_type: String,
-    pub content: String,
-}
-
-#[derive(Serialize, Debug)]
-pub struct PatchRecordRequest {
-    pub content: String,
-}
-
-#[derive(Deserialize, Debug)]
-struct PatchRecordResponse {
-    pub success: bool,
-    pub errors: Vec<CloudFlareError>,
 }

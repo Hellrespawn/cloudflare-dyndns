@@ -7,11 +7,11 @@ use reqwest::Client;
 use tokio::sync::OnceCell;
 use tracing::{debug, info};
 
-use crate::cli::dyndns::ip_cache::{IpCache, IpCacheResult};
-use crate::cloudflare_api::endpoints::{get_records, list_zones, patch_record};
-use crate::cloudflare_api::{DNSRecordResponse, PatchRecordRequest};
+use crate::cloudflare_api::record::{get_records, patch_record};
+use crate::cloudflare_api::zone::list_zones;
 use crate::config::{Config, ZoneConfig};
 use crate::public_ip::get_public_ip_address;
+use crate::public_ip::ip_cache::{IpCache, IpCacheResult};
 
 static ZONE_NAME_TO_ID_MAP: OnceCell<HashMap<String, String>> =
     OnceCell::const_new();
@@ -46,18 +46,19 @@ async fn get_zone_name_to_id_map(
     client: &Client,
 ) -> Result<&HashMap<String, String>> {
     ZONE_NAME_TO_ID_MAP
-        .get_or_try_init(|| async {
-            let list_zones_response = list_zones(client).await?;
+        .get_or_try_init(|| {
+            async {
+                let list_zones_response = list_zones(client).await?;
 
-            let map = list_zones_response
-                .result
-                .into_iter()
-                .map(|z| (z.name, z.id))
-                .collect::<HashMap<_, _>>();
+                let map = list_zones_response
+                    .into_iter()
+                    .map(|z| (z.name, z.id))
+                    .collect::<HashMap<_, _>>();
 
-            debug!("Retrieved zones: {map:#?}");
+                debug!("Retrieved zones: {map:#?}");
 
-            Ok::<_, Report>(map)
+                Ok::<_, Report>(map)
+            }
         })
         .await
 }
@@ -93,13 +94,13 @@ async fn handle_zone(
             },
         }
 
-        let records = get_records(client, zone_id).await?.result;
+        let records = get_records(client, zone_id).await?;
 
         debug!("Retrieved records for '{zone_name_or_id}':\n{records:#?}");
 
         let records_to_update = records
             .iter()
-            .filter(|r| is_record_selected(r, zone_config))
+            .filter(|r| zone_config.is_record_selected(r))
             .collect::<Vec<_>>();
 
         debug!("Updating {} records:", records_to_update.len());
@@ -108,35 +109,19 @@ async fn handle_zone(
             debug!("{:>4}: {}", record.record_type, record.name);
         }
 
-        let requests = records_to_update
-            .into_iter()
-            .map(|r| {
-                (
-                    r,
-                    PatchRecordRequest {
-                        content: public_ip_address.to_string(),
-                    },
-                )
-            })
-            .collect::<Vec<_>>();
-
-        for (record, request) in requests {
+        for record in records_to_update {
             info!("Updating {}...", record.name);
-            let patch_record_response =
-                patch_record(client, zone_id, &record.id, request).await;
+            let patch_record_response = patch_record(
+                client,
+                zone_id,
+                &record.id,
+                &public_ip_address.to_string(),
+            )
+            .await;
 
             patch_record_response?;
         }
 
         Ok(())
     }
-}
-
-fn is_record_selected(
-    record_response: &DNSRecordResponse,
-    zone_config: &ZoneConfig,
-) -> bool {
-    let DNSRecordResponse { name, record_type, .. } = record_response;
-
-    zone_config.records().iter().any(|r| r.is_match(name, record_type))
 }

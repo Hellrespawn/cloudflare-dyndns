@@ -1,3 +1,5 @@
+pub mod ip_cache;
+
 use std::net::Ipv4Addr;
 
 use color_eyre::Result;

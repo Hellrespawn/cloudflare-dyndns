@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
@@ -8,6 +6,7 @@ use nix::unistd::geteuid;
 use serde::Deserialize;
 use tracing::{debug, trace};
 
+use crate::cloudflare_api::record::{DNSRecord, DNSRecordType};
 use crate::PKG_NAME;
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
@@ -97,6 +96,13 @@ impl ZoneConfig {
     pub fn records(&self) -> &[RecordConfig] {
         &self.records
     }
+
+    #[must_use]
+    pub fn is_record_selected(&self, record: &DNSRecord) -> bool {
+        self.records.iter().any(|r| {
+            r.name() == record.name && r.record_type() == record.record_type
+        })
+    }
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
@@ -125,42 +131,6 @@ impl RecordConfig {
             RecordConfig::Name(_) => DNSRecordType::A,
         }
     }
-
-    #[must_use]
-    pub fn is_match(&self, name: &str, record_type: &str) -> bool {
-        let record_type = DNSRecordType::from_str(record_type);
-
-        if let Ok(record_type) = record_type {
-            name == self.name() && record_type == self.record_type()
-        } else {
-            false
-        }
-    }
-}
-
-#[derive(Deserialize, Debug, PartialEq, Eq, Default, Copy, Clone)]
-pub enum DNSRecordType {
-    #[default]
-    A,
-    AAAA,
-    MX,
-    TXT,
-}
-
-impl FromStr for DNSRecordType {
-    type Err = color_eyre::Report;
-
-    fn from_str(s: &str) -> Result<Self> {
-        let record_type = match s.to_lowercase().as_str() {
-            "a" => Self::A,
-            "aaaa" => Self::AAAA,
-            "mx" => Self::MX,
-            "txt" => Self::TXT,
-            other => return Err(eyre!("Unknown DNS record type '{other}'")),
-        };
-
-        Ok(record_type)
-    }
 }
 
 #[cfg(test)]
@@ -174,39 +144,33 @@ mod test {
     fn get_default_config() -> Config {
         let mut zones = IndexMap::new();
 
-        zones.insert(
-            "example.nl".to_owned(),
-            ZoneConfig {
-                records: vec![
-                    RecordConfig::Full {
-                        record_type: DNSRecordType::A,
-                        name: "www".to_owned(),
-                    },
-                    RecordConfig::Full {
-                        record_type: DNSRecordType::A,
-                        name: "mail".to_owned(),
-                    },
-                    RecordConfig::Name("test".to_owned()),
-                ],
-            },
-        );
+        zones.insert("example.nl".to_owned(), ZoneConfig {
+            records: vec![
+                RecordConfig::Full {
+                    record_type: DNSRecordType::A,
+                    name: "www".to_owned(),
+                },
+                RecordConfig::Full {
+                    record_type: DNSRecordType::A,
+                    name: "mail".to_owned(),
+                },
+                RecordConfig::Name("test".to_owned()),
+            ],
+        });
 
-        zones.insert(
-            "otherexample.com".to_owned(),
-            ZoneConfig {
-                records: vec![
-                    RecordConfig::Full {
-                        record_type: DNSRecordType::A,
-                        name: "www".to_owned(),
-                    },
-                    RecordConfig::Full {
-                        record_type: DNSRecordType::A,
-                        name: "mail".to_owned(),
-                    },
-                    RecordConfig::Name("test".to_owned()),
-                ],
-            },
-        );
+        zones.insert("otherexample.com".to_owned(), ZoneConfig {
+            records: vec![
+                RecordConfig::Full {
+                    record_type: DNSRecordType::A,
+                    name: "www".to_owned(),
+                },
+                RecordConfig::Full {
+                    record_type: DNSRecordType::A,
+                    name: "mail".to_owned(),
+                },
+                RecordConfig::Name("test".to_owned()),
+            ],
+        });
 
         Config {
             public_ip_url: "https://example.ip".to_owned(),

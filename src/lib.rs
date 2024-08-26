@@ -5,7 +5,6 @@
 #![allow(clippy::missing_panics_doc)]
 #![allow(clippy::module_name_repetitions)]
 #![allow(unknown_lints)] // For nightly lints
-#![allow(clippy::uninlined_format_args)]
 
 pub mod cli;
 pub mod cloudflare_api;
@@ -44,7 +43,7 @@ pub fn init() -> color_eyre::Result<()> {
         .without_time()
         .with_target(false)
         .with_level(false)
-        .with_filter(level_filter)
+        .with_filter(LevelFilter::INFO)
         .with_filter(FilterFn::new(|m| m.target().starts_with(CRATE_NAME)));
 
     let dev_layer = fmt::layer()
@@ -69,7 +68,7 @@ pub fn create_reqwest_client(token: &str) -> Result<Client> {
     );
     headers.insert(
         "Authorization",
-        format!("Bearer {}", token)
+        format!("Bearer {token}")
             .parse()
             .map_err(|_| eyre!("Invalid 'Authorization' header."))?,
     );

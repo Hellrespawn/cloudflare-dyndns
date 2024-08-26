@@ -46,8 +46,10 @@ impl Config {
     pub fn load_config() -> Result<Config> {
         let default_config_file = Self::default_config_file()?;
 
-        let config_paths =
-            [default_config_file, Utf8PathBuf::from("config.toml")];
+        let config_paths = [
+            default_config_file,
+            Utf8PathBuf::from(Self::default_config_file_name()),
+        ];
 
         for config_path in &config_paths {
             if config_path.is_file() {
@@ -63,6 +65,17 @@ impl Config {
         }
 
         Err(eyre!("Unable to read configuration file at {}", config_paths[0]))
+    }
+
+    pub fn load_config_from(config_path: &Utf8Path) -> Result<Config> {
+        let contents = fs_err::read_to_string(config_path)?;
+        let mut config: Config = toml::from_str(&contents)?;
+
+        config.cache_file = config_path.with_extension("cache");
+
+        debug!("Loaded configuration from {config_path}");
+
+        Ok(config)
     }
 
     fn default_config_dir() -> Result<Utf8PathBuf> {
@@ -82,7 +95,11 @@ impl Config {
     }
 
     fn default_config_file() -> Result<Utf8PathBuf> {
-        Ok(Self::default_config_dir()?.join(format!("{PKG_NAME}.conf")))
+        Ok(Self::default_config_dir()?.join(Self::default_config_file_name()))
+    }
+
+    fn default_config_file_name() -> String {
+        format!("{PKG_NAME}.toml")
     }
 }
 
@@ -120,7 +137,7 @@ impl RecordConfig {
         let self_name = self.name();
 
         let name_matches = self_name == record_name
-            || record_name.starts_with(&format!("{}.", self_name));
+            || record_name.starts_with(&format!("{self_name}."));
 
         let type_matches = self.record_type() == record.record_type;
 
@@ -154,33 +171,39 @@ mod test {
     fn get_default_config() -> Config {
         let mut zones = IndexMap::new();
 
-        zones.insert("example.nl".to_owned(), ZoneConfig {
-            records: vec![
-                RecordConfig::Full {
-                    record_type: DNSRecordType::A,
-                    name: "www".to_owned(),
-                },
-                RecordConfig::Full {
-                    record_type: DNSRecordType::A,
-                    name: "mail".to_owned(),
-                },
-                RecordConfig::Name("test".to_owned()),
-            ],
-        });
+        zones.insert(
+            "example.nl".to_owned(),
+            ZoneConfig {
+                records: vec![
+                    RecordConfig::Full {
+                        record_type: DNSRecordType::A,
+                        name: "www".to_owned(),
+                    },
+                    RecordConfig::Full {
+                        record_type: DNSRecordType::A,
+                        name: "mail".to_owned(),
+                    },
+                    RecordConfig::Name("test".to_owned()),
+                ],
+            },
+        );
 
-        zones.insert("otherexample.com".to_owned(), ZoneConfig {
-            records: vec![
-                RecordConfig::Full {
-                    record_type: DNSRecordType::A,
-                    name: "www".to_owned(),
-                },
-                RecordConfig::Full {
-                    record_type: DNSRecordType::A,
-                    name: "mail".to_owned(),
-                },
-                RecordConfig::Name("test".to_owned()),
-            ],
-        });
+        zones.insert(
+            "otherexample.com".to_owned(),
+            ZoneConfig {
+                records: vec![
+                    RecordConfig::Full {
+                        record_type: DNSRecordType::A,
+                        name: "www".to_owned(),
+                    },
+                    RecordConfig::Full {
+                        record_type: DNSRecordType::A,
+                        name: "mail".to_owned(),
+                    },
+                    RecordConfig::Name("test".to_owned()),
+                ],
+            },
+        );
 
         Config {
             public_ip_url: "https://example.ip".to_owned(),

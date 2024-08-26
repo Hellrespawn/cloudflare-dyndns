@@ -35,16 +35,16 @@ records = ["example.nl", "*", "mail"]
 ## Usage
 
 ```txt
-Dynamic DNS for CloudFlare.
+Dynamic DNS for CloudFlare
 
 Usage: cloudflare-dyndns [OPTIONS]
 
 Options:
-      --ip <ADDRESS>               User-supplied IP address  # TODO
-  -p, --preview                    Don't update records, only show changes [aliases: dry_run] [short aliases: d]  # TODO
-  -c, --config-file <CONFIG_FILE>  Custom configuration file  # TODO
-  -h, --help                       Print help  # TODO
-  -V, --version                    Print version  # TODO
+  -c, --config <CONFIG>          Config file location. Defaults to ~/.config/cloudflare-dyndns.toml or /etc/cloudflare-dyndns/cloudflare-dyndns.toml when running as root
+  -i, --ip-address <IP_ADDRESS>  The desired IP address. Defaults to the IP address determined via the `public_ip_url` in the configuration
+  -p, --preview                  Shows what would happen, but doesn't change any settings
+  -f, --force                    Update records even if the cached IP address hasn't changed
+  -h, --help                     Print help
 ```
 
 ### Manual usage

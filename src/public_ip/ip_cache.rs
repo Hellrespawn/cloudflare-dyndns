@@ -1,7 +1,7 @@
 use std::fmt::Write;
 use std::net::Ipv4Addr;
 
-use camino::Utf8Path;
+use camino::{Utf8Path, Utf8PathBuf};
 use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use indexmap::IndexMap;
@@ -11,6 +11,7 @@ static DELIMITER: char = ';';
 #[derive(Debug, Default)]
 pub struct IpCache {
     cache: IndexMap<String, Ipv4Addr>,
+    path: Utf8PathBuf,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -21,7 +22,11 @@ pub enum IpCacheResult {
 }
 
 impl IpCache {
-    pub fn save(&self, path: &Utf8Path) -> Result<()> {
+    pub fn save(&self) -> Result<()> {
+        self.save_to(&self.path)
+    }
+
+    pub fn save_to(&self, path: &Utf8Path) -> Result<()> {
         let body =
             self.cache.iter().fold(String::new(), |mut acc, (key, value)| {
                 writeln!(acc, "{key}{DELIMITER}{value}").unwrap();
@@ -33,7 +38,7 @@ impl IpCache {
         Ok(())
     }
 
-    pub fn load(path: &Utf8Path) -> Result<Option<IpCache>> {
+    pub fn load(path: &Utf8Path) -> Result<IpCache> {
         if path.is_file() {
             let body = fs_err::read_to_string(path)?;
 
@@ -47,11 +52,11 @@ impl IpCache {
                 cache.insert(key.to_owned(), value.parse()?);
             }
 
-            Ok(Some(IpCache { cache }))
+            Ok(IpCache { cache, path: path.to_owned() })
         } else if path.exists() {
             Err(eyre!("Cache file path exists, but is not a file!"))
         } else {
-            Ok(None)
+            Ok(IpCache { cache: IndexMap::new(), path: path.to_owned() })
         }
     }
 

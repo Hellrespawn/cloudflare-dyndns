@@ -33,7 +33,7 @@ impl IpCache {
                 acc
             });
 
-        fs_err::write(path, &body)?;
+        fs_err::write(path, body)?;
 
         Ok(())
     }

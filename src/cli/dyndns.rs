@@ -101,17 +101,19 @@ async fn get_zone_name_to_id_map(
     client: &Client,
 ) -> Result<&HashMap<String, String>> {
     ZONE_NAME_TO_ID_MAP
-        .get_or_try_init(|| async {
-            let list_zones_response = list_zones(client).await?;
+        .get_or_try_init(|| {
+            async {
+                let list_zones_response = list_zones(client).await?;
 
-            let map = list_zones_response
-                .into_iter()
-                .map(|z| (z.name, z.id))
-                .collect::<HashMap<_, _>>();
+                let map = list_zones_response
+                    .into_iter()
+                    .map(|z| (z.name, z.id))
+                    .collect::<HashMap<_, _>>();
 
-            debug!("Retrieved zones: {map:#?}");
+                debug!("Retrieved zones: {map:#?}");
 
-            Ok::<_, Report>(map)
+                Ok::<_, Report>(map)
+            }
         })
         .await
 }

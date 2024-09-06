@@ -171,39 +171,33 @@ mod test {
     fn get_default_config() -> Config {
         let mut zones = IndexMap::new();
 
-        zones.insert(
-            "example.nl".to_owned(),
-            ZoneConfig {
-                records: vec![
-                    RecordConfig::Full {
-                        record_type: DNSRecordType::A,
-                        name: "www".to_owned(),
-                    },
-                    RecordConfig::Full {
-                        record_type: DNSRecordType::A,
-                        name: "mail".to_owned(),
-                    },
-                    RecordConfig::Name("test".to_owned()),
-                ],
-            },
-        );
+        zones.insert("example.nl".to_owned(), ZoneConfig {
+            records: vec![
+                RecordConfig::Full {
+                    record_type: DNSRecordType::A,
+                    name: "www".to_owned(),
+                },
+                RecordConfig::Full {
+                    record_type: DNSRecordType::A,
+                    name: "mail".to_owned(),
+                },
+                RecordConfig::Name("test".to_owned()),
+            ],
+        });
 
-        zones.insert(
-            "otherexample.com".to_owned(),
-            ZoneConfig {
-                records: vec![
-                    RecordConfig::Full {
-                        record_type: DNSRecordType::A,
-                        name: "www".to_owned(),
-                    },
-                    RecordConfig::Full {
-                        record_type: DNSRecordType::A,
-                        name: "mail".to_owned(),
-                    },
-                    RecordConfig::Name("test".to_owned()),
-                ],
-            },
-        );
+        zones.insert("otherexample.com".to_owned(), ZoneConfig {
+            records: vec![
+                RecordConfig::Full {
+                    record_type: DNSRecordType::A,
+                    name: "www".to_owned(),
+                },
+                RecordConfig::Full {
+                    record_type: DNSRecordType::A,
+                    name: "mail".to_owned(),
+                },
+                RecordConfig::Name("test".to_owned()),
+            ],
+        });
 
         Config {
             public_ip_url: "https://example.ip".to_owned(),

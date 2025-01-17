@@ -1,15 +1,21 @@
+use camino::Utf8PathBuf;
 use clap::Parser;
 use color_eyre::Result;
 use reqwest::Client;
 
 use crate::cloudflare_api::record::{get_records, DNSRecord, DNSRecordType};
 use crate::cloudflare_api::zone::{list_zones, ZoneResponse};
-use crate::config::Config;
+use crate::config::ApplicationConfigLoader;
 use crate::create_reqwest_client;
 
 #[derive(Parser)]
 /// List `CloudFlare` zones.
 struct Args {
+    /// Configuration file location. Defaults to
+    /// ~/.config/cloudflare-dyndns.toml or
+    /// /etc/cloudflare-dyndns/cloudflare-dyndns.toml when running as root.
+    config: Option<Utf8PathBuf>,
+
     #[arg(short, long, action = clap::ArgAction::Count)]
     verbosity: u8,
 }
@@ -19,7 +25,10 @@ pub async fn main() -> Result<()> {
 
     let args = Args::parse();
 
-    let config = Config::load_config()?;
+    let config_path =
+        args.config.unwrap_or(ApplicationConfigLoader::default_config_file()?);
+
+    let config = ApplicationConfigLoader::load_config_from(&config_path)?;
 
     let verbosity = args.verbosity;
 

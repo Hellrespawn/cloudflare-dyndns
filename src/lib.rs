@@ -9,8 +9,10 @@
 pub mod cli;
 pub mod cloudflare_api;
 pub mod config;
-pub mod public_ip;
+pub mod ip_cache;
+pub mod state;
 
+use std::net::Ipv4Addr;
 use std::str::FromStr;
 
 use color_eyre::eyre::eyre;
@@ -77,4 +79,8 @@ pub fn create_reqwest_client(token: &str) -> Result<Client> {
         Client::builder().default_headers(headers).use_rustls_tls().build()?;
 
     Ok(client)
+}
+
+pub async fn get_public_ip_address(url: &str) -> Result<Ipv4Addr> {
+    Ok(reqwest::get(url).await?.text().await?.parse()?)
 }

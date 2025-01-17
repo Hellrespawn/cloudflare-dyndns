@@ -3,26 +3,31 @@ use std::net::Ipv4Addr;
 
 use camino::Utf8PathBuf;
 use clap::Parser;
-use color_eyre::eyre::{eyre, Report};
+use color_eyre::eyre::eyre;
 use color_eyre::Result;
 use reqwest::Client;
-use tokio::sync::OnceCell;
 use tracing::{debug, info};
 
 use crate::cloudflare_api::record::{get_records, patch_record};
 use crate::cloudflare_api::zone::list_zones;
-use crate::config::{Config, ZoneConfig};
-use crate::public_ip::get_public_ip_address;
-use crate::public_ip::ip_cache::{IpCache, IpCacheResult};
+use crate::config::{ApplicationConfigLoader, ZoneConfig};
+use crate::get_public_ip_address;
+use crate::ip_cache::{IpCacheReader, IpCacheResult, IpCacheWriter};
+use crate::state::{ApplicationState, ApplicationStateBuilder};
 
 #[allow(clippy::doc_markdown)]
 #[derive(Parser)]
 /// Dynamic DNS for CloudFlare
 struct Args {
     #[arg(short, long)]
-    /// Config file location. Defaults to ~/.config/cloudflare-dyndns.toml or
+    /// Configuration file location. Defaults to
+    /// ~/.config/cloudflare-dyndns.toml or
     /// /etc/cloudflare-dyndns/cloudflare-dyndns.toml when running as root.
     config: Option<Utf8PathBuf>,
+
+    /// IP address cache file location. Defaults to the same location as the
+    /// configuration file, with a .cache extension.
+    ip_cache: Option<Utf8PathBuf>,
 
     /// The desired IP address. Defaults to the IP address determined via the
     /// `public_ip_url` in the configuration.
@@ -38,58 +43,45 @@ struct Args {
     force: bool,
 }
 
-struct Options {
-    client: Client,
-    ip_cache: IpCache,
-    public_ip_address: Ipv4Addr,
-    preview: bool,
-    force: bool,
-}
-
-impl Options {
-    async fn new(args: &Args, config: &Config) -> Result<Self> {
-        let ip_cache = IpCache::load(config.cache_file())?;
-
-        let public_ip_address = if let Some(ip_address) = args.ip_address {
-            ip_address
-        } else {
-            get_public_ip_address(config.public_ip_url()).await?
-        };
-
-        let client = crate::create_reqwest_client(config.cloudflare_token())?;
-
-        Ok(Options {
-            client,
-            ip_cache,
-            public_ip_address,
-            preview: args.preview,
-            force: args.force,
-        })
-    }
-}
-
-static ZONE_NAME_TO_ID_MAP: OnceCell<HashMap<String, String>> =
-    OnceCell::const_new();
-
 pub async fn main() -> Result<()> {
     crate::init()?;
 
     let args = Args::parse();
 
-    let config = if let Some(config_path) = &args.config {
-        Config::load_config_from(config_path)?
+    let config_path =
+        args.config.unwrap_or(ApplicationConfigLoader::default_config_file()?);
+
+    let config = ApplicationConfigLoader::load_config_from(&config_path)?;
+
+    let ip_cache_path =
+        args.ip_cache.unwrap_or(config_path.with_extension("cache"));
+
+    let ip_cache = IpCacheReader::load(&ip_cache_path)?;
+
+    let client = crate::create_reqwest_client(config.cloudflare_token())?;
+
+    let public_ip_address = if let Some(ip_address) = args.ip_address {
+        ip_address
     } else {
-        Config::load_config()?
+        get_public_ip_address(config.public_ip_url()).await?
     };
 
-    let mut options = Options::new(&args, &config).await?;
+    let mut state = ApplicationStateBuilder::default()
+        .client(client)
+        .config_path(config_path)
+        .ip_cache(ip_cache)
+        .ip_cache_path(ip_cache_path)
+        .public_ip_address(public_ip_address)
+        .preview(args.preview)
+        .force(args.force)
+        .build()?;
 
-    for (zone, config) in config.zones() {
-        handle_zone(&mut options, zone, config).await?;
+    for (zone, zone_config) in config.zones() {
+        handle_zone(&mut state, zone, zone_config).await?;
     }
 
-    if !options.preview {
-        options.ip_cache.save()?;
+    if !state.preview {
+        IpCacheWriter.save(&state.ip_cache, &state.ip_cache_path)?;
     }
 
     info!("Done.");
@@ -99,27 +91,21 @@ pub async fn main() -> Result<()> {
 
 async fn get_zone_name_to_id_map(
     client: &Client,
-) -> Result<&HashMap<String, String>> {
-    ZONE_NAME_TO_ID_MAP
-        .get_or_try_init(|| {
-            async {
-                let list_zones_response = list_zones(client).await?;
+) -> Result<HashMap<String, String>> {
+    let list_zones_response = list_zones(client).await?;
 
-                let map = list_zones_response
-                    .into_iter()
-                    .map(|z| (z.name, z.id))
-                    .collect::<HashMap<_, _>>();
+    let map = list_zones_response
+        .into_iter()
+        .map(|z| (z.name, z.id))
+        .collect::<HashMap<_, _>>();
 
-                debug!("Retrieved zones: {map:#?}");
+    debug!("Retrieved zones: {map:#?}");
 
-                Ok::<_, Report>(map)
-            }
-        })
-        .await
+    Ok(map)
 }
 
 async fn handle_zone(
-    options: &mut Options,
+    state: &mut ApplicationState,
     zone_name_or_id: &str,
     zone_config: &ZoneConfig,
 ) -> Result<()> {
@@ -128,19 +114,19 @@ async fn handle_zone(
     } else {
         info!("Handling zone '{}'", zone_name_or_id);
 
-        let zone_to_id_map = get_zone_name_to_id_map(&options.client).await?;
+        let zone_to_id_map = get_zone_name_to_id_map(&state.client).await?;
 
         let zone_id = zone_to_id_map
             .get(zone_name_or_id)
             .map_or(zone_name_or_id, |s| s.as_str());
 
-        let public_ip_address = options.public_ip_address;
+        let public_ip_address = state.public_ip_address;
 
-        let result = options.ip_cache.handle_ip(zone_id, public_ip_address);
+        let result = state.ip_cache.handle_ip(zone_id, public_ip_address);
 
         match result {
             IpCacheResult::Unchanged => {
-                if options.force {
+                if state.force {
                     info!("IP address unchanged: '{public_ip_address}', forcing update");
                 } else {
                     info!("IP address unchanged: '{public_ip_address}'");
@@ -155,7 +141,7 @@ async fn handle_zone(
             },
         }
 
-        let records = get_records(&options.client, zone_id).await?;
+        let records = get_records(&state.client, zone_id).await?;
 
         debug!("Retrieved records for '{zone_name_or_id}':\n{records:#?}");
 
@@ -172,9 +158,9 @@ async fn handle_zone(
 
         for record in records_to_update {
             info!("Updating {}...", record.name);
-            if !options.preview {
+            if !state.preview {
                 let patch_record_response = patch_record(
-                    &options.client,
+                    &state.client,
                     zone_id,
                     &record.id,
                     &public_ip_address.to_string(),

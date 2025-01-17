@@ -4,7 +4,7 @@ edition = "2021"
 license = "BSD 3-Clause"
 name = "cloudflare-dyndns"
 repository = "https://github.com/Hellrespawn/cloudflare-dyndns"
-version = "0.8.0"
+version = "0.8.1"
 default-run = "cloudflare-dyndns"
 
 [package.metadata.cargo-machete]
@@ -21,8 +21,9 @@ path = "src/bin/main.rs"
 camino = "1.1"
 clap = { version = "4.5", features = ["derive"] }
 color-eyre = "0.6"
-dirs = "5.0"
-fs-err = "2.11"
+derive_builder = "0.20"
+dirs = "6.0"
+fs-err = "3.0"
 indexmap = { version = "2.4", features = ["serde"] }
 reqwest = { version = "0.12", features = [
     "json",
@@ -31,7 +32,7 @@ reqwest = { version = "0.12", features = [
 serde = { version = "1.0", features = ["derive"] }
 strum = "0.26"
 strum_macros = "0.26"
-tokio = { version = "1.36", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.36", features = ["macros", "rt"] }
 toml = { version = "0.8", features = ["preserve_order"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

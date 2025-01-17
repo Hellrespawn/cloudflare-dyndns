@@ -2,7 +2,7 @@ public_ip_url = "https://example.ip"
 cloudflare_token = ""
 
 ["example.com"]
-records = ["example.com", "*", "ftp"]
+records = ["example.com", "*", { type = "AAAA", name = "mail" }]
 
 ["example.nl"]
-records = ["example.nl", "*", "mail"]
+records = ["example.nl", "*", { type = "AAAA", name = "mail" }]

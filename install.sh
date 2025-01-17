@@ -3,7 +3,9 @@
 set -o errexit
 
 name="cloudflare-dyndns"
-dest="/opt/$name"
+
+bin_dir="/opt/$name"
+config_path="/etc/$name/$name.toml"
 
 action="install"
 force=
@@ -26,45 +28,50 @@ done
 install() {
     cargo build --release
 
-    sudo mkdir -p "$dest"
-    sudo cp target/release/cloudflare-dyndns "$dest/$name"
+    sudo sh -c "install -Dm755 target/release/cloudflare-dyndns $bin_dir/$name"
 
-    echo "Installed $name to $dest"
+    echo "Installed $name to $bin_dir/$name..."
 
-    sudo cp "$name.service" /etc/systemd/system/
-    sudo cp "$name.timer" /etc/systemd/system/
+    sudo sh -c "install -Dm644 $name.timer -t /etc/systemd/system/"
+    sudo sh -c "install -Dm644 $name.service -t /etc/systemd/system/"
 
-    echo "Installed systemd service and timer"
+    echo "Installed systemd service and timer..."
 
-    sudo mkdir -p "/etc/$name"
-    sudo cp $name.example.toml /etc/$name/$name.toml
+    if [ -f "$config_path" ] && [ -z "$force" ]; then
+        echo "Configuration file exists at $config_path..."
+    else
+        if [ -n "$force" ]; then
+            echo "Overwriting existing configuration because of -f..."
+        fi
 
-    echo "Edit the configuration at /etc/$name/$name.toml"
+        sudo sh -c "install -Dm644 $name.example.toml $config_path"
+
+        echo "Installed example configuration to $config_path..."
+    fi
 
 }
 
 uninstall() {
-    config="/etc/$name/$name.toml"
     backup="/etc/$name/$name.toml.save"
 
-    if [ -z "$force" ] && [ -f "$config" ]; then
-        sudo mv "$config" "$backup"
-        echo "Backed up configuration to $backup"
+    if [ -f "$config_path" ] && [ -z "$force" ]; then
+        sudo mv "$config_path" "$backup"
+        echo "Backed up configuration to $backup..."
     fi
 
     if [ -n "$force" ]; then
         sudo rm -rf /etc/$name/
-        echo "Removed configuration from /etc/$name"
+        echo "Removed configuration from /etc/$name because of -f..."
     fi
 
     sudo rm -f "/etc/systemd/system/$name.service"
     sudo rm -f "/etc/systemd/system/$name.timer"
 
-    echo "Removed systemd service and timer"
+    echo "Removed systemd service and timer..."
 
-    sudo rm -rf "$dest"
+    sudo rm -rf "$bin_dir"
 
-    echo "Removed $dest"
+    echo "Removed $bin_dir..."
 }
 
 if [ "$action" == "install" ]; then
@@ -72,3 +79,5 @@ if [ "$action" == "install" ]; then
 elif [ "$action" == "uninstall" ]; then
     uninstall
 fi
+
+echo "Done."

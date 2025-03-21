@@ -3,8 +3,8 @@ use std::net::Ipv4Addr;
 
 use camino::Utf8PathBuf;
 use clap::Parser;
-use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use color_eyre::eyre::eyre;
 use reqwest::Client;
 use tracing::{debug, info};
 
@@ -110,7 +110,9 @@ async fn handle_zone(
     zone_config: &ZoneConfig,
 ) -> Result<()> {
     if zone_config.records().is_empty() {
-        Err(eyre!("There are no records selected for update on zone '{zone_name_or_id}'."))
+        Err(eyre!(
+            "There are no records selected for update on zone '{zone_name_or_id}'."
+        ))
     } else {
         info!("Handling zone '{}'", zone_name_or_id);
 
@@ -127,7 +129,9 @@ async fn handle_zone(
         match result {
             IpCacheResult::Unchanged => {
                 if state.force {
-                    info!("IP address unchanged: '{public_ip_address}', forcing update");
+                    info!(
+                        "IP address unchanged: '{public_ip_address}', forcing update"
+                    );
                 } else {
                     info!("IP address unchanged: '{public_ip_address}'");
                     return Ok(());
@@ -137,7 +141,9 @@ async fn handle_zone(
                 info!("IP address on first run: '{public_ip_address}'");
             },
             IpCacheResult::Changed { previous_ip_address } => {
-                info!("IP address updated: '{previous_ip_address}' => '{public_ip_address}'");
+                info!(
+                    "IP address updated: '{previous_ip_address}' => '{public_ip_address}'"
+                );
             },
         }
 

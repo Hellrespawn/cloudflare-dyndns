@@ -2,7 +2,7 @@ use color_eyre::Result;
 use reqwest::Client;
 use serde::Deserialize;
 
-use super::{transform_error_responses, CloudFlareError, API_URL};
+use super::{API_URL, CloudFlareError, transform_error_responses};
 
 #[derive(Deserialize, Debug)]
 struct ListZonesResponse {

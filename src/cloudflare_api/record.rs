@@ -3,7 +3,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString};
 
-use super::{transform_error_responses, CloudFlareError, API_URL};
+use super::{API_URL, CloudFlareError, transform_error_responses};
 
 #[derive(Deserialize, Debug)]
 struct GetRecordsResponse {

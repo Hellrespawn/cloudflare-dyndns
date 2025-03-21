@@ -15,10 +15,10 @@ pub mod state;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 
-use color_eyre::eyre::eyre;
 use color_eyre::Result;
-use reqwest::header::HeaderMap;
+use color_eyre::eyre::eyre;
 use reqwest::Client;
+use reqwest::header::HeaderMap;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::filter::FilterFn;
 use tracing_subscriber::fmt;

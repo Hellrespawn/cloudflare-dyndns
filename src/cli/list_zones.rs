@@ -3,8 +3,8 @@ use clap::Parser;
 use color_eyre::Result;
 use reqwest::Client;
 
-use crate::cloudflare_api::record::{get_records, DNSRecord, DNSRecordType};
-use crate::cloudflare_api::zone::{list_zones, ZoneResponse};
+use crate::cloudflare_api::record::{DNSRecord, DNSRecordType, get_records};
+use crate::cloudflare_api::zone::{ZoneResponse, list_zones};
 use crate::config::ApplicationConfigLoader;
 use crate::create_reqwest_client;
 

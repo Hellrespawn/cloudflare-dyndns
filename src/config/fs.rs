@@ -1,11 +1,11 @@
 use camino::{Utf8Path, Utf8PathBuf};
-use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use color_eyre::eyre::eyre;
 use nix::unistd::geteuid;
 use tracing::{debug, trace};
 
-use crate::config::ApplicationConfig;
 use crate::PKG_NAME;
+use crate::config::ApplicationConfig;
 
 pub struct ApplicationConfigLoader;
 

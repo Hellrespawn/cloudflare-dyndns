@@ -1,8 +1,8 @@
 use std::fmt::Write;
 
 use camino::Utf8Path;
-use color_eyre::eyre::eyre;
 use color_eyre::Result;
+use color_eyre::eyre::eyre;
 use indexmap::IndexMap;
 
 static DELIMITER: &str = ";";

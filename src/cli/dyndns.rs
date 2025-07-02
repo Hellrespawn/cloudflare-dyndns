@@ -73,12 +73,15 @@ pub async fn main() -> Result<()> {
         get_public_ip_address(config.public_ip_url()).await?
     };
 
+    let zone_name_to_id_map = get_zone_name_to_id_map(&client).await?;
+
     let mut state = ApplicationStateBuilder::default()
         .client(client)
         .config_path(config_path)
         .ip_cache(ip_cache)
         .ip_cache_path(ip_cache_path)
         .public_ip_address(public_ip_address)
+        .zone_name_to_id_map(zone_name_to_id_map)
         .preview(args.preview)
         .force(args.force)
         .build()?;
@@ -99,7 +102,6 @@ pub async fn main() -> Result<()> {
 async fn get_zone_name_to_id_map(
     client: &Client,
 ) -> Result<HashMap<String, String>> {
-    // FIXME currently gets called for every zone
     let list_zones_response = list_zones(client).await?;
 
     let map = list_zones_response
@@ -124,9 +126,8 @@ async fn handle_zone(
     } else {
         info!("Handling zone '{}'", zone_name_or_id);
 
-        let zone_to_id_map = get_zone_name_to_id_map(&state.client).await?;
-
-        let zone_id = zone_to_id_map
+        let zone_id = state
+            .zone_name_to_id_map
             .get(zone_name_or_id)
             .map_or(zone_name_or_id, |s| s.as_str());
 

@@ -19,6 +19,7 @@ use color_eyre::Result;
 use color_eyre::eyre::eyre;
 use reqwest::Client;
 use reqwest::header::HeaderMap;
+use tracing::Level;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::filter::FilterFn;
 use tracing_subscriber::fmt;
@@ -38,8 +39,9 @@ pub fn init() -> color_eyre::Result<()> {
     });
 
     let level_filter =
-        var.map_or(Ok(LevelFilter::OFF), |l| LevelFilter::from_str(&l))?;
+        var.map_or(Ok(LevelFilter::INFO), |l| LevelFilter::from_str(&l))?;
 
+    // Output logging
     let user_layer = fmt::layer()
         .compact()
         .without_time()
@@ -48,12 +50,22 @@ pub fn init() -> color_eyre::Result<()> {
         .with_filter(LevelFilter::INFO)
         .with_filter(FilterFn::new(|m| m.target().starts_with(CRATE_NAME)));
 
-    let dev_layer = fmt::layer()
+    let debug_layer = fmt::layer()
         .compact()
         .with_filter(level_filter)
         .with_filter(FilterFn::new(|m| m.target().starts_with(CRATE_NAME)));
 
-    tracing_subscriber::registry().with(user_layer).with(dev_layer).init();
+    let registry = tracing_subscriber::registry();
+
+    let level = level_filter.into_level();
+
+    if let Some(level) = level
+        && level > Level::INFO
+    {
+        registry.with(debug_layer).init();
+    } else {
+        registry.with(user_layer).init();
+    }
 
     Ok(())
 }

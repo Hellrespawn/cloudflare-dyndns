@@ -6,7 +6,7 @@ use clap::Parser;
 use color_eyre::Result;
 use color_eyre::eyre::eyre;
 use reqwest::Client;
-use tracing::{debug, info};
+use tracing::{debug, info, trace};
 
 use crate::cloudflare_api::record::{get_records, patch_record};
 use crate::cloudflare_api::zone::list_zones;
@@ -16,7 +16,7 @@ use crate::ip_cache::{IpCacheReader, IpCacheResult, IpCacheWriter};
 use crate::state::{ApplicationState, ApplicationStateBuilder};
 
 #[allow(clippy::doc_markdown)]
-#[derive(Parser)]
+#[derive(Debug, Parser)]
 /// Dynamic DNS for CloudFlare
 struct Args {
     #[arg(short, long)]
@@ -46,17 +46,24 @@ struct Args {
 pub async fn main() -> Result<()> {
     crate::init()?;
 
+    debug!("Logging start...");
+
     let args = Args::parse();
+    trace!("Parsed args:\n{:#?}", args);
 
     let config_path =
         args.config.unwrap_or(ApplicationConfigLoader::default_config_file()?);
 
     let config = ApplicationConfigLoader::load_config_from(&config_path)?;
 
+    trace!("Configuration:\n{:#?}", config);
+
     let ip_cache_path =
         args.ip_cache.unwrap_or(config_path.with_extension("cache"));
 
     let ip_cache = IpCacheReader::load(&ip_cache_path)?;
+
+    debug!("IP cache:\n{:#?}", ip_cache);
 
     let client = crate::create_reqwest_client(config.cloudflare_token())?;
 

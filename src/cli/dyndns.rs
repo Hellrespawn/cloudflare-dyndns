@@ -99,6 +99,7 @@ pub async fn main() -> Result<()> {
 async fn get_zone_name_to_id_map(
     client: &Client,
 ) -> Result<HashMap<String, String>> {
+    // FIXME currently gets called for every zone
     let list_zones_response = list_zones(client).await?;
 
     let map = list_zones_response

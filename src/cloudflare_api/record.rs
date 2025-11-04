@@ -31,6 +31,7 @@ pub enum DNSRecordType {
     MX,
     TXT,
     SRV,
+    CNAME,
 }
 
 pub async fn get_records(

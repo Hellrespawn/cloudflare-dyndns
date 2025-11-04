@@ -32,6 +32,8 @@ pub enum DNSRecordType {
     TXT,
     SRV,
     CNAME,
+    #[serde(other)]
+    MISC
 }
 
 pub async fn get_records(

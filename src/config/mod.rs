@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use serde::Deserialize;
 
-use crate::cloudflare_api::record::{DNSRecord, DNSRecordType};
+use crate::provider::DnsRecordType;
 
 mod fs;
 
@@ -10,11 +10,8 @@ pub use fs::ApplicationConfigLoader;
 #[derive(Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct ApplicationConfig {
     public_ip_url: String,
-
-    cloudflare_token: String,
-
-    #[serde(flatten)]
-    zones: IndexMap<String, ZoneConfig>,
+    cloudflare: Option<ProviderConfig>,
+    bunny: Option<ProviderConfig>,
 }
 
 impl ApplicationConfig {
@@ -24,8 +21,27 @@ impl ApplicationConfig {
     }
 
     #[must_use]
-    pub fn cloudflare_token(&self) -> &str {
-        &self.cloudflare_token
+    pub fn cloudflare(&self) -> Option<&ProviderConfig> {
+        self.cloudflare.as_ref()
+    }
+
+    #[must_use]
+    pub fn bunny(&self) -> Option<&ProviderConfig> {
+        self.bunny.as_ref()
+    }
+}
+
+#[derive(Deserialize, Debug, PartialEq, Eq, Clone)]
+pub struct ProviderConfig {
+    token: String,
+    #[serde(flatten)]
+    zones: IndexMap<String, ZoneConfig>,
+}
+
+impl ProviderConfig {
+    #[must_use]
+    pub fn token(&self) -> &str {
+        &self.token
     }
 
     #[must_use]
@@ -46,32 +62,28 @@ impl ZoneConfig {
     }
 
     #[must_use]
-    pub fn is_record_selected(&self, record: &DNSRecord) -> bool {
-        self.records.iter().any(|r| r.match_record(record))
+    pub fn is_record_selected(&self, record_name: &str, record_type: DnsRecordType) -> bool {
+        self.records.iter().any(|r| r.matches(record_name, record_type))
     }
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq, Clone)]
-#[serde[untagged]]
+#[serde(untagged)]
 pub enum RecordConfig {
     Full {
         #[serde(rename = "type", default)]
-        record_type: DNSRecordType,
+        record_type: DnsRecordType,
         name: String,
     },
     Name(String),
 }
 
 impl RecordConfig {
-    fn match_record(&self, record: &DNSRecord) -> bool {
-        let record_name = &record.name;
+    fn matches(&self, record_name: &str, record_type: DnsRecordType) -> bool {
         let self_name = self.name();
-
         let name_matches = self_name == record_name
             || record_name.starts_with(&format!("{self_name}."));
-
-        let type_matches = self.record_type() == record.record_type;
-
+        let type_matches = self.record_type() == record_type;
         type_matches && name_matches
     }
 
@@ -83,10 +95,10 @@ impl RecordConfig {
     }
 
     #[must_use]
-    pub fn record_type(&self) -> DNSRecordType {
+    pub fn record_type(&self) -> DnsRecordType {
         match self {
             RecordConfig::Full { record_type, .. } => *record_type,
-            RecordConfig::Name(_) => DNSRecordType::A,
+            RecordConfig::Name(_) => DnsRecordType::A,
         }
     }
 }
@@ -99,50 +111,46 @@ mod test {
 
     const EXAMPLE: &str = include_str!("../../test/example.toml");
 
-    fn get_default_config() -> ApplicationConfig {
-        let mut zones = IndexMap::new();
-
-        zones.insert("example.nl".to_owned(), ZoneConfig {
+    fn get_expected_config() -> ApplicationConfig {
+        let mut cf_zones = IndexMap::new();
+        cf_zones.insert("example.nl".to_owned(), ZoneConfig {
             records: vec![
                 RecordConfig::Full {
-                    record_type: DNSRecordType::A,
+                    record_type: DnsRecordType::A,
                     name: "www".to_owned(),
                 },
-                RecordConfig::Full {
-                    record_type: DNSRecordType::A,
-                    name: "mail".to_owned(),
-                },
-                RecordConfig::Name("test".to_owned()),
+                RecordConfig::Name("mail".to_owned()),
             ],
         });
 
-        zones.insert("otherexample.com".to_owned(), ZoneConfig {
+        let mut bunny_zones = IndexMap::new();
+        bunny_zones.insert("otherexample.com".to_owned(), ZoneConfig {
             records: vec![
                 RecordConfig::Full {
-                    record_type: DNSRecordType::A,
+                    record_type: DnsRecordType::A,
                     name: "www".to_owned(),
                 },
-                RecordConfig::Full {
-                    record_type: DNSRecordType::A,
-                    name: "mail".to_owned(),
-                },
-                RecordConfig::Name("test".to_owned()),
+                RecordConfig::Name("mail".to_owned()),
             ],
         });
 
         ApplicationConfig {
             public_ip_url: "https://example.ip".to_owned(),
-            cloudflare_token: "12345AB".to_owned(),
-            zones,
+            cloudflare: Some(ProviderConfig {
+                token: "cf_token".to_owned(),
+                zones: cf_zones,
+            }),
+            bunny: Some(ProviderConfig {
+                token: "bunny_token".to_owned(),
+                zones: bunny_zones,
+            }),
         }
     }
 
     #[test]
-    fn test_deserialize_default() -> Result<()> {
+    fn test_deserialize() -> Result<()> {
         let config: ApplicationConfig = toml::from_str(EXAMPLE)?;
-
-        assert_eq!(config, get_default_config());
-
+        assert_eq!(config, get_expected_config());
         Ok(())
     }
 }

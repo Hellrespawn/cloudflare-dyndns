@@ -6,19 +6,18 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(unknown_lints)] // For nightly lints
 
+pub(crate) mod bunny_api;
 pub mod cli;
-pub mod cloudflare_api;
+pub(crate) mod cloudflare_api;
 pub mod config;
 pub mod ip_cache;
+pub mod provider;
 pub mod state;
 
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 
 use color_eyre::Result;
-use color_eyre::eyre::eyre;
-use reqwest::Client;
-use reqwest::header::HeaderMap;
 use tracing::Level;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::filter::FilterFn;
@@ -68,29 +67,6 @@ pub fn init() -> color_eyre::Result<()> {
     }
 
     Ok(())
-}
-
-/// Create client with Content-Type and Authorization headers.
-pub fn create_reqwest_client(token: &str) -> Result<Client> {
-    let mut headers = HeaderMap::new();
-
-    headers.insert(
-        "Content-Type",
-        "application/json"
-            .parse()
-            .map_err(|_| eyre!("Invalid 'Content-Type' header."))?,
-    );
-    headers.insert(
-        "Authorization",
-        format!("Bearer {token}")
-            .parse()
-            .map_err(|_| eyre!("Invalid 'Authorization' header."))?,
-    );
-
-    let client =
-        Client::builder().default_headers(headers).use_rustls_tls().build()?;
-
-    Ok(client)
 }
 
 pub async fn get_public_ip_address(url: &str) -> Result<Ipv4Addr> {

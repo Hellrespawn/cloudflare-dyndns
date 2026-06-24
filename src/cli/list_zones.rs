@@ -1,19 +1,17 @@
 use camino::Utf8PathBuf;
 use clap::Parser;
 use color_eyre::Result;
-use reqwest::Client;
 
-use crate::cloudflare_api::record::{DNSRecord, DNSRecordType, get_records};
-use crate::cloudflare_api::zone::{ZoneResponse, list_zones};
 use crate::config::ApplicationConfigLoader;
-use crate::create_reqwest_client;
+use crate::provider::{DnsProvider, DnsRecord, DnsRecordType};
+use crate::provider::cloudflare::CloudflareProvider;
+use crate::provider::bunny::BunnyProvider;
 
 #[derive(Parser)]
-/// List `CloudFlare` zones.
+/// List DNS zones from all configured providers.
 struct Args {
     /// Configuration file location. Defaults to
-    /// ~/.config/cloudflare-dyndns.toml or
-    /// /etc/cloudflare-dyndns/cloudflare-dyndns.toml when running as root.
+    /// ~/.config/ryndns/ryndns.toml or /etc/ryndns/ryndns.toml when running as root.
     config: Option<Utf8PathBuf>,
 
     #[arg(short, long, action = clap::ArgAction::Count)]
@@ -24,112 +22,92 @@ pub async fn main() -> Result<()> {
     crate::init()?;
 
     let args = Args::parse();
-
     let config_path =
         args.config.unwrap_or(ApplicationConfigLoader::default_config_file()?);
-
     let config = ApplicationConfigLoader::load_config_from(&config_path)?;
 
-    let verbosity = args.verbosity;
+    if let Some(cf_config) = config.cloudflare() {
+        println!("cloudflare:");
+        let provider = CloudflareProvider::new(cf_config.token())?;
+        print_provider_zones(&provider, args.verbosity).await?;
+        println!();
+    }
 
-    let client = create_reqwest_client(config.cloudflare_token())?;
-
-    let zones = list_zones(&client).await?;
-
-    if zones.is_empty() {
-        println!("Found 0 zones.");
-    } else {
-        print_zones(&client, &zones, verbosity).await?;
+    if let Some(bunny_config) = config.bunny() {
+        println!("bunny:");
+        let provider = BunnyProvider::new(bunny_config.token())?;
+        print_provider_zones(&provider, args.verbosity).await?;
+        println!();
     }
 
     Ok(())
 }
 
-async fn print_zones(
-    client: &Client,
-    zones: &[ZoneResponse],
+async fn print_provider_zones<P: DnsProvider>(
+    provider: &P,
     verbosity: u8,
 ) -> Result<()> {
-    let max_name_length = zones.iter().map(|z| z.name.len()).max().unwrap_or(0);
+    let zones = provider.list_zones().await?;
 
-    println!("Found {} zones:", zones.len());
+    if zones.is_empty() {
+        println!("  (no zones found)");
+        return Ok(());
+    }
 
-    for zone in zones {
-        print_zone(client, zone, verbosity, max_name_length).await?;
+    let max_name = zones.iter().map(|z| z.name.len()).max().unwrap_or(0);
+
+    for zone in &zones {
+        println!("  {:max_name$} (id: {})", zone.name, zone.id);
+
+        if verbosity > 0 {
+            let records = provider.list_records(zone).await?;
+            let filtered: Vec<_> = records
+                .into_iter()
+                .filter(|r| verbosity > 1 || r.record_type == DnsRecordType::A)
+                .collect();
+
+            if !filtered.is_empty() {
+                let fmt = DnsRecordFormatter::from_records(&filtered);
+                for record in &filtered {
+                    fmt.print(record);
+                }
+            }
+            println!();
+        }
     }
 
     Ok(())
 }
 
 #[derive(Debug, Default)]
-struct DNSRecordFormatter {
+struct DnsRecordFormatter {
     id: usize,
     name: usize,
     record_type: usize,
     content: usize,
 }
 
-impl DNSRecordFormatter {
-    fn from_records(records: &[DNSRecord]) -> Self {
-        let mut alignment = DNSRecordFormatter::default();
-
-        for record in records {
-            alignment = alignment.add(record);
-        }
-
-        alignment
+impl DnsRecordFormatter {
+    fn from_records(records: &[DnsRecord]) -> Self {
+        records.iter().fold(Self::default(), |acc, r| Self {
+            id: acc.id.max(r.id.len()),
+            name: acc.name.max(r.name.len()),
+            record_type: acc.record_type.max(r.record_type.to_string().len()),
+            content: acc.content.max(r.content.len()),
+        })
     }
 
-    fn add(self, record: &DNSRecord) -> Self {
-        Self {
-            id: std::cmp::max(record.id.len(), self.id),
-            name: std::cmp::max(record.name.len(), self.name),
-            record_type: std::cmp::max(
-                record.record_type.to_string().len(),
-                self.record_type,
-            ),
-            content: std::cmp::max(record.content.len(), self.content),
-        }
-    }
-
-    // fn width(&self) -> usize {
-    //     // Add spaces between columns
-    //     self.id + self.name + self.record_type + self.content + 3
-    // }
-
-    fn print(&self, DNSRecord { id, name, record_type, content }: &DNSRecord) {
+    fn print(&self, r: &DnsRecord) {
         println!(
-            "{id:0$} {name:1$} {record_type:2$} {content:3$}",
-            self.id, self.name, self.record_type, self.content
+            "    {id:id_w$} {name:name_w$} {rt:rt_w$} {content:content_w$}",
+            id = r.id,
+            id_w = self.id,
+            name = r.name,
+            name_w = self.name,
+            rt = r.record_type,
+            rt_w = self.record_type,
+            content = r.content,
+            content_w = self.content,
         );
     }
-}
-
-async fn print_zone(
-    client: &Client,
-    zone: &ZoneResponse,
-    verbosity: u8,
-    max_name_length: usize,
-) -> Result<()> {
-    println!("{:max_name_length$} ({})", zone.name, zone.id);
-
-    if verbosity > 0 {
-        let records = get_records(client, &zone.id)
-            .await?
-            .into_iter()
-            .filter(|record| {
-                verbosity > 1 || record.record_type == DNSRecordType::A
-            })
-            .collect::<Vec<_>>();
-
-        let alignment = DNSRecordFormatter::from_records(&records);
-
-        for record in records {
-            alignment.print(&record);
-        }
-
-        println!();
-    }
-
-    Ok(())
 }

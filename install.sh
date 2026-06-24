@@ -2,7 +2,7 @@
 
 set -o errexit
 
-name="cloudflare-dyndns"
+name="ryndns"
 
 bin_dir="/opt/$name"
 config_path="/etc/$name/$name.toml"
@@ -28,7 +28,7 @@ done
 install() {
     cargo build --release
 
-    sudo sh -c "install -Dm755 target/release/cloudflare-dyndns $bin_dir/$name"
+    sudo sh -c "install -Dm755 target/release/$name $bin_dir/$name"
 
     echo "Installed $name to $bin_dir/$name..."
 

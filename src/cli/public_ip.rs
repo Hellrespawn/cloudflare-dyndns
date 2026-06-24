@@ -6,11 +6,10 @@ use crate::config::ApplicationConfigLoader;
 use crate::get_public_ip_address;
 
 #[derive(Parser)]
-/// List `CloudFlare` zones.
+/// Show the current public IP address.
 struct Args {
     /// Configuration file location. Defaults to
-    /// ~/.config/cloudflare-dyndns.toml or
-    /// /etc/cloudflare-dyndns/cloudflare-dyndns.toml when running as root.
+    /// ~/.config/ryndns/ryndns.toml or /etc/ryndns/ryndns.toml when running as root.
     config: Option<Utf8PathBuf>,
 }
 

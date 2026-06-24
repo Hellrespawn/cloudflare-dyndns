@@ -1,16 +1,19 @@
 public_ip_url = "https://example.ip"
-cloudflare_token = "12345AB"
 
-["example.nl"]
+[cloudflare]
+token = "cf_token"
+
+[cloudflare."example.nl"]
 records = [
-    { type = "A", name="www"},
-    { name = "mail"},
-    "test"
+    { type = "A", name = "www" },
+    "mail",
 ]
 
-["otherexample.com"]
+[bunny]
+token = "bunny_token"
+
+[bunny."otherexample.com"]
 records = [
-    { type = "A", name="www"},
-    { name = "mail"},
-    "test"
+    { type = "A", name = "www" },
+    "mail",
 ]

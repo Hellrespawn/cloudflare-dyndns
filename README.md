@@ -1,6 +1,6 @@
-# Dynamic DNS for CloudFlare
+# ryndns (Ring-a-ding-dyndns)
 
-Dynamic DNS script for CloudFlare. Checks the public IP and, if changed, update all A-records to point to it.
+Dynamic DNS tool that updates your DNS records when your public IP changes. Supports Cloudflare and bunny.net.
 
 Includes systemd service and timer.
 
@@ -10,37 +10,43 @@ Requires Rust.
 
 Run `cargo install` to install it to your personal `cargo` bin. Make sure it's on your `$PATH`.
 
-If using systemd, copy `service` to `/etc/systemd/cloudflare-dyndns.service` and `timer` to `/etc/systemd/cloudflare-dyndns.timer`.
+If using systemd, copy `ryndns.service` to `/etc/systemd/system/ryndns.service` and `ryndns.timer` to `/etc/systemd/system/ryndns.timer`.
 
-Alternatively, use the `install.sh`-script.
+Alternatively, use the `install.sh` script.
 
 ## Configuration
 
-The script tries to read `/etc/cloudflare-dyndns/cloudflare-dyndns.toml` when running as root or `$HOME/.config/cloudflare-dyndns.toml` when running as user.
+The tool tries to read `/etc/ryndns/ryndns.toml` when running as root or `$HOME/.config/ryndns/ryndns.toml` when running as user.
+
+**Migration note:** If upgrading from `cloudflare-dyndns`, move your config from `~/.config/cloudflare-dyndns/` to `~/.config/ryndns/` and update the format as shown below.
 
 The expected format is:
 
 ```toml
 public_ip_url = "https://example.ip"
-cloudflare_token = ""
 
-["example.com"]  # Zone name or id
-records = ["example.com", "*", "ftp"]  # A-record names.
+[cloudflare]
+token = "your-cloudflare-token"
 
-["example.nl"]
-records = ["example.nl", "*", "mail"]
+["cloudflare.example.com"]  # Zone name or id
+records = ["example.com", "*", "ftp"]  # A-record names
 
+[bunny]
+token = "your-bunny-api-key"
+
+["bunny.example.nl"]  # Zone name
+records = ["example.nl", "*", "mail"]  # A-record names
 ```
 
 ## Usage
 
 ```txt
-Dynamic DNS for CloudFlare
+Dynamic DNS tool for Cloudflare and bunny.net
 
-Usage: cloudflare-dyndns [OPTIONS]
+Usage: ryndns [OPTIONS]
 
 Options:
-  -c, --config <CONFIG>          Config file location. Defaults to ~/.config/cloudflare-dyndns.toml or /etc/cloudflare-dyndns/cloudflare-dyndns.toml when running as root
+  -c, --config <CONFIG>          Config file location. Defaults to ~/.config/ryndns/ryndns.toml or /etc/ryndns/ryndns.toml when running as root
   -i, --ip-address <IP_ADDRESS>  The desired IP address. Defaults to the IP address determined via the `public_ip_url` in the configuration
   -p, --preview                  Shows what would happen, but doesn't change any settings
   -f, --force                    Update records even if the cached IP address hasn't changed
@@ -49,18 +55,18 @@ Options:
 
 ### Manual usage
 
-Run `cloudflare-dyndns` to query the public IP address of the current device and point all A-records to it.
+Run `ryndns` to query the public IP address of the current device and update all configured DNS records to point to it.
 
-You can also run `cloudflare-dyndns -i <IP Address>` to manually specify the IP address.
+You can also run `ryndns -i <IP Address>` to manually specify the IP address.
 
 Consider using the systemd service or adding an entry to your `crontab`.
 
 ### crontab
 
-You can add `cloudflare-dyndns` to your crontab.
+You can add `ryndns` to your crontab.
 
 ```crontab
-"*/15 * * * *  /opt/cloudflare-dyndns >> /var/log/cloudflare-dyndns.log 2>&1"
+"*/15 * * * *  /opt/ryndns >> /var/log/ryndns.log 2>&1"
 ```
 
 This will run every 15 minutes, logging the output to a file.
@@ -68,15 +74,19 @@ This will run every 15 minutes, logging the output to a file.
 Use the following command or similar to add it to your crontab.
 
 ```sh
-printf "%s\n%s\n" "$(crontab -l)" "*/15 * * * *  /opt/cloudflare-dyndns >> /var/log/cloudflare-dyndns.log 2>&1" | crontab -
+printf "%s\n%s\n" "$(crontab -l)" "*/15 * * * *  /opt/ryndns >> /var/log/ryndns.log 2>&1" | crontab -
 ```
 
 ### systemd
 
-You can run `cloudflare-dyndns.service` to manually update the IP address once.
+You can run `ryndns.service` to manually update the IP address once.
 
 ```sh
-systemctl start cloudflare-dyndns.service
+systemctl start ryndns.service
 ```
 
-You can enable and start `cloudflare-dyndns.timer` to run the script every 15 minutes.
+You can enable and start `ryndns.timer` to run the tool every 15 minutes.
+
+```sh
+systemctl enable --now ryndns.timer
+```

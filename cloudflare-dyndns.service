@@ -1,7 +1,0 @@
-[Unit]
-Description=Update CloudFlare DNS
-
-[Service]
-Type=oneshot
-ExecStart=/opt/cloudflare-dyndns/cloudflare-dyndns
-

@@ -3,4 +3,4 @@ Description=Update DNS records
 
 [Service]
 Type=oneshot
-ExecStart=/opt/ryndns/ryndns
+ExecStart=/usr/local/bin/ryndns

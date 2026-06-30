@@ -8,11 +8,22 @@ Requires Rust.
 
 ## Installation
 
-Run `cargo install` to install it to your personal `cargo` bin. Make sure it's on your `$PATH`.
+For a personal install, run `cargo install` and make sure `~/.cargo/bin` is on your `$PATH`.
 
-If using systemd, copy `ryndns.service` to `/etc/systemd/system/ryndns.service` and `ryndns.timer` to `/etc/systemd/system/ryndns.timer`.
+For a system-wide install, use `make`:
 
-Alternatively, use the `install.sh` script.
+```sh
+make install        # installs to /usr/local/bin by default
+sudo make install   # installs system-wide with default paths
+```
+
+Override variables as needed:
+
+```sh
+sudo make install PREFIX=/usr UNITDIR=/usr/lib/systemd/system
+```
+
+`DESTDIR` is supported for staged installs.
 
 ## Configuration
 
@@ -68,7 +79,7 @@ Consider using the systemd service or adding an entry to your `crontab`.
 You can add `ryndns` to your crontab.
 
 ```crontab
-"*/15 * * * *  /opt/ryndns >> /var/log/ryndns.log 2>&1"
+*/15 * * * *  /usr/local/bin/ryndns >> /var/log/ryndns.log 2>&1
 ```
 
 This will run every 15 minutes, logging the output to a file.
@@ -76,7 +87,7 @@ This will run every 15 minutes, logging the output to a file.
 Use the following command or similar to add it to your crontab.
 
 ```sh
-printf "%s\n%s\n" "$(crontab -l)" "*/15 * * * *  /opt/ryndns >> /var/log/ryndns.log 2>&1" | crontab -
+printf "%s\n%s\n" "$(crontab -l)" "*/15 * * * *  /usr/local/bin/ryndns >> /var/log/ryndns.log 2>&1" | crontab -
 ```
 
 ### systemd

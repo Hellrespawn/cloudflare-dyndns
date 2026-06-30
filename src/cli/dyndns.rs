@@ -55,6 +55,10 @@ pub async fn main() -> Result<()> {
     let config = ApplicationConfigLoader::load_config_from(&config_path)?;
     trace!("Configuration:\n{:#?}", config);
 
+    if args.preview {
+        info!("Preview mode — no changes will be made.");
+    }
+
     if config.cloudflare().is_none() && config.bunny().is_none() {
         return Err(eyre!(
             "No provider configured. Add a [cloudflare] or [bunny] section to your config."
@@ -91,11 +95,12 @@ pub async fn main() -> Result<()> {
         run_provider(&provider, bunny_config, &mut state).await?;
     }
 
-    if !state.preview {
+    if state.preview {
+        info!("Done. (preview — no changes were made)");
+    } else {
         IpCacheWriter.save(&state.ip_cache, &state.ip_cache_path)?;
+        info!("Done.");
     }
-
-    info!("Done.");
     Ok(())
 }
 
@@ -175,8 +180,10 @@ async fn handle_zone<P: DnsProvider>(
     }
 
     for record in records_to_update {
-        info!("Updating {}...", record.name);
-        if !state.preview {
+        if state.preview {
+            info!("Would update {}.", record.name);
+        } else {
+            info!("Updating {}...", record.name);
             provider
                 .update_record(zone, record, &public_ip_address.to_string())
                 .await?;

@@ -1,4 +1,3 @@
-use indexmap::IndexMap;
 use serde::Deserialize;
 
 use crate::provider::DnsRecordType;
@@ -34,8 +33,7 @@ impl ApplicationConfig {
 #[derive(Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct ProviderConfig {
     token: String,
-    #[serde(flatten)]
-    zones: IndexMap<String, ZoneConfig>,
+    zones: Vec<ZoneConfig>,
 }
 
 impl ProviderConfig {
@@ -45,13 +43,14 @@ impl ProviderConfig {
     }
 
     #[must_use]
-    pub fn zones(&self) -> &IndexMap<String, ZoneConfig> {
+    pub fn zones(&self) -> &[ZoneConfig] {
         &self.zones
     }
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct ZoneConfig {
+    pub name: String,
     records: Vec<RecordConfig>,
 }
 
@@ -112,37 +111,33 @@ mod test {
     const EXAMPLE: &str = include_str!("../../test/example.toml");
 
     fn get_expected_config() -> ApplicationConfig {
-        let mut cf_zones = IndexMap::new();
-        cf_zones.insert("example.nl".to_owned(), ZoneConfig {
-            records: vec![
-                RecordConfig::Full {
-                    record_type: DnsRecordType::A,
-                    name: "www".to_owned(),
-                },
-                RecordConfig::Name("mail".to_owned()),
-            ],
-        });
-
-        let mut bunny_zones = IndexMap::new();
-        bunny_zones.insert("otherexample.com".to_owned(), ZoneConfig {
-            records: vec![
-                RecordConfig::Full {
-                    record_type: DnsRecordType::A,
-                    name: "www".to_owned(),
-                },
-                RecordConfig::Name("mail".to_owned()),
-            ],
-        });
-
         ApplicationConfig {
             public_ip_url: "https://example.ip".to_owned(),
             cloudflare: Some(ProviderConfig {
                 token: "cf_token".to_owned(),
-                zones: cf_zones,
+                zones: vec![ZoneConfig {
+                    name: "example.nl".to_owned(),
+                    records: vec![
+                        RecordConfig::Full {
+                            record_type: DnsRecordType::A,
+                            name: "www".to_owned(),
+                        },
+                        RecordConfig::Name("mail".to_owned()),
+                    ],
+                }],
             }),
             bunny: Some(ProviderConfig {
                 token: "bunny_token".to_owned(),
-                zones: bunny_zones,
+                zones: vec![ZoneConfig {
+                    name: "otherexample.com".to_owned(),
+                    records: vec![
+                        RecordConfig::Full {
+                            record_type: DnsRecordType::A,
+                            name: "www".to_owned(),
+                        },
+                        RecordConfig::Name("mail".to_owned()),
+                    ],
+                }],
             }),
         }
     }

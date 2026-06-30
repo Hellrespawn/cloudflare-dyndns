@@ -3,7 +3,8 @@ public_ip_url = "https://example.ip"
 [cloudflare]
 token = "cf_token"
 
-[cloudflare."example.nl"]
+[[cloudflare.zones]]
+name = "example.nl"
 records = [
     { type = "A", name = "www" },
     "mail",
@@ -12,7 +13,8 @@ records = [
 [bunny]
 token = "bunny_token"
 
-[bunny."otherexample.com"]
+[[bunny.zones]]
+name = "otherexample.com"
 records = [
     { type = "A", name = "www" },
     "mail",

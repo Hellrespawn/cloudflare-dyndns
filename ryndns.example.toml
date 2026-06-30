@@ -3,11 +3,13 @@ public_ip_url = "https://example.ip"
 [cloudflare]
 token = ""
 
-[cloudflare."example.com"]
+[[cloudflare.zones]]
+name = "example.com"  # Zone name or id
 records = ["example.com", "*", { type = "AAAA", name = "mail" }]
 
 [bunny]
 token = ""
 
-[bunny."example.nl"]
+[[bunny.zones]]
+name = "example.nl"  # Zone name
 records = ["example.nl", "*", { type = "AAAA", name = "mail" }]

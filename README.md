@@ -28,13 +28,15 @@ public_ip_url = "https://example.ip"
 [cloudflare]
 token = "your-cloudflare-token"
 
-["cloudflare.example.com"]  # Zone name or id
+[[cloudflare.zones]]
+name = "example.com"  # Zone name or id
 records = ["example.com", "*", "ftp"]  # A-record names
 
 [bunny]
 token = "your-bunny-api-key"
 
-["bunny.example.nl"]  # Zone name
+[[bunny.zones]]
+name = "example.nl"  # Zone name
 records = ["example.nl", "*", "mail"]  # A-record names
 ```
 

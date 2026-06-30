@@ -112,13 +112,13 @@ async fn run_provider<P: DnsProvider>(
 
     debug!("Retrieved zones: {:#?}", zone_map.keys().collect::<Vec<_>>());
 
-    for (zone_name, zone_config) in provider_config.zones() {
-        let zone = zone_map.get(zone_name).cloned().unwrap_or_else(|| {
+    for zone_config in provider_config.zones() {
+        let zone = zone_map.get(&zone_config.name).cloned().unwrap_or_else(|| {
             tracing::warn!(
                 "Zone '{}' not found in provider's zone list — treating as zone ID directly",
-                zone_name
+                zone_config.name
             );
-            Zone { id: zone_name.clone(), name: zone_name.clone() }
+            Zone { id: zone_config.name.clone(), name: zone_config.name.clone() }
         });
         handle_zone(provider, &zone, zone_config, state).await?;
     }

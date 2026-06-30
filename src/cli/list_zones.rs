@@ -3,9 +3,9 @@ use clap::Parser;
 use color_eyre::Result;
 
 use crate::config::ApplicationConfigLoader;
-use crate::provider::{DnsProvider, DnsRecord, DnsRecordType};
-use crate::provider::cloudflare::CloudflareProvider;
 use crate::provider::bunny::BunnyProvider;
+use crate::provider::cloudflare::CloudflareProvider;
+use crate::provider::{DnsProvider, DnsRecord, DnsRecordType};
 
 #[derive(Parser)]
 /// List DNS zones from all configured providers.
@@ -89,11 +89,15 @@ struct DnsRecordFormatter {
 
 impl DnsRecordFormatter {
     fn from_records(records: &[DnsRecord]) -> Self {
-        records.iter().fold(Self::default(), |acc, r| Self {
-            id: acc.id.max(r.id.len()),
-            name: acc.name.max(r.name.len()),
-            record_type: acc.record_type.max(r.record_type.to_string().len()),
-            content: acc.content.max(r.content.len()),
+        records.iter().fold(Self::default(), |acc, r| {
+            Self {
+                id: acc.id.max(r.id.len()),
+                name: acc.name.max(r.name.len()),
+                record_type: acc
+                    .record_type
+                    .max(r.record_type.to_string().len()),
+                content: acc.content.max(r.content.len()),
+            }
         })
     }
 

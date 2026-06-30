@@ -44,12 +44,14 @@ impl DnsProvider for CloudflareProvider {
         let records = get_records(&self.client, &zone.id).await?;
         Ok(records
             .into_iter()
-            .map(|r| DnsRecord {
-                id: r.id,
-                name: r.name,
-                record_type: r.record_type,
-                content: r.content,
-                ttl: None,
+            .map(|r| {
+                DnsRecord {
+                    id: r.id,
+                    name: r.name,
+                    record_type: r.record_type,
+                    content: r.content,
+                    ttl: None,
+                }
             })
             .collect())
     }

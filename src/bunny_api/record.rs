@@ -25,7 +25,10 @@ struct GetZoneResponse {
     records: Vec<BunnyRecord>,
 }
 
-pub async fn list_records(client: &Client, zone_id: i64) -> Result<Vec<BunnyRecord>> {
+pub async fn list_records(
+    client: &Client,
+    zone_id: i64,
+) -> Result<Vec<BunnyRecord>> {
     let response: GetZoneResponse = client
         .get(format!("{BUNNY_API_URL}/dnszone/{zone_id}"))
         .send()

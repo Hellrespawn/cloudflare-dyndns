@@ -10,9 +10,9 @@ use tracing::{debug, info, trace};
 use crate::config::{ApplicationConfigLoader, ProviderConfig, ZoneConfig};
 use crate::get_public_ip_address;
 use crate::ip_cache::{IpCacheReader, IpCacheResult, IpCacheWriter};
-use crate::provider::{DnsProvider, Zone};
-use crate::provider::cloudflare::CloudflareProvider;
 use crate::provider::bunny::BunnyProvider;
+use crate::provider::cloudflare::CloudflareProvider;
+use crate::provider::{DnsProvider, Zone};
 use crate::state::{ApplicationState, ApplicationStateBuilder};
 
 #[allow(clippy::doc_markdown)]
@@ -110,10 +110,8 @@ async fn run_provider<P: DnsProvider>(
     state: &mut ApplicationState,
 ) -> Result<()> {
     let zone_list = provider.list_zones().await?;
-    let zone_map: HashMap<String, Zone> = zone_list
-        .into_iter()
-        .map(|z| (z.name.clone(), z))
-        .collect();
+    let zone_map: HashMap<String, Zone> =
+        zone_list.into_iter().map(|z| (z.name.clone(), z)).collect();
 
     debug!("Retrieved zones: {:#?}", zone_map.keys().collect::<Vec<_>>());
 
@@ -152,7 +150,9 @@ async fn handle_zone<P: DnsProvider>(
     match result {
         IpCacheResult::Unchanged => {
             if state.force {
-                info!("IP address unchanged: '{public_ip_address}', forcing update");
+                info!(
+                    "IP address unchanged: '{public_ip_address}', forcing update"
+                );
             } else {
                 info!("IP address unchanged: '{public_ip_address}'");
                 return Ok(());
@@ -162,7 +162,9 @@ async fn handle_zone<P: DnsProvider>(
             info!("IP address on first run: '{public_ip_address}'");
         },
         IpCacheResult::Changed { previous_ip_address } => {
-            info!("IP address updated: '{previous_ip_address}' => '{public_ip_address}'");
+            info!(
+                "IP address updated: '{previous_ip_address}' => '{public_ip_address}'"
+            );
         },
     }
 

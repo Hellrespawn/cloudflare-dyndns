@@ -61,7 +61,11 @@ impl ZoneConfig {
     }
 
     #[must_use]
-    pub fn is_record_selected(&self, record_name: &str, record_type: DnsRecordType) -> bool {
+    pub fn is_record_selected(
+        &self,
+        record_name: &str,
+        record_type: DnsRecordType,
+    ) -> bool {
         self.records.iter().any(|r| r.matches(record_name, record_type))
     }
 }

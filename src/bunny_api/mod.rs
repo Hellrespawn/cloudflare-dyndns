@@ -16,9 +16,7 @@ pub fn build_bunny_client(token: &str) -> color_eyre::Result<reqwest::Client> {
     );
     headers.insert(
         "AccessKey",
-        token
-            .parse()
-            .map_err(|_| eyre!("Invalid AccessKey header"))?,
+        token.parse().map_err(|_| eyre!("Invalid AccessKey header"))?,
     );
     Ok(reqwest::Client::builder()
         .default_headers(headers)

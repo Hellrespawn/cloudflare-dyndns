@@ -2,9 +2,8 @@ use color_eyre::Result;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use crate::provider::DnsRecordType;
-
 use super::{API_URL, CloudFlareError, transform_error_responses};
+use crate::provider::DnsRecordType;
 
 #[derive(Deserialize, Debug)]
 struct GetRecordsResponse {

@@ -15,8 +15,8 @@
 //! converts bare subdomain names to FQDNs (`www` → `www.example.com`, `""` → `example.com`).
 //! `BunnyProvider::update_record` reverses this before calling the API.
 
-pub mod cloudflare;
 pub mod bunny;
+pub mod cloudflare;
 
 use color_eyre::Result;
 use serde::Deserialize;
@@ -37,7 +37,9 @@ pub struct DnsRecord {
     pub ttl: Option<u32>,
 }
 
-#[derive(Deserialize, Debug, PartialEq, Eq, Default, Copy, Clone, EnumString, Display)]
+#[derive(
+    Deserialize, Debug, PartialEq, Eq, Default, Copy, Clone, EnumString, Display,
+)]
 pub enum DnsRecordType {
     #[default]
     A,
@@ -64,6 +66,7 @@ impl From<u8> for DnsRecordType {
     }
 }
 
+#[allow(async_fn_in_trait)]
 pub trait DnsProvider {
     async fn list_zones(&self) -> Result<Vec<Zone>>;
     async fn list_records(&self, zone: &Zone) -> Result<Vec<DnsRecord>>;
